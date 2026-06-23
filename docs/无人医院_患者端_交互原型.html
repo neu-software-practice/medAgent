@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>无人医院 · 患者端交互原型</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css">
+<style>
+:root{
+--color-background-primary:#fff;--color-background-secondary:#f5f4ef;--color-background-tertiary:#eeede6;
+--color-text-primary:#1f1e1c;--color-text-secondary:#6b6a64;--color-text-tertiary:#9a988f;
+--color-text-info:#185fa5;--color-background-info:#e6f1fb;--color-border-info:#85b7eb;
+--color-text-danger:#a32d2d;--color-background-danger:#fcebeb;
+--color-text-success:#0f6e56;--color-background-success:#e1f5ee;
+--color-text-warning:#854f0b;--color-background-warning:#faeeda;
+--color-border-tertiary:rgba(0,0,0,.12);--color-border-secondary:rgba(0,0,0,.22);
+--border-radius-md:8px;--border-radius-lg:12px;
+--font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+}
+body{margin:0;background:var(--color-background-secondary);font-family:var(--font-sans);color:var(--color-text-primary);padding:24px 12px;}
+.wrap{max-width:600px;margin:0 auto;}
+.hint{font-size:12px;color:var(--color-text-secondary);text-align:center;margin:0 auto 14px;max-width:470px;line-height:1.6;}
+.stage{display:flex;gap:14px;justify-content:center;align-items:flex-start;flex-wrap:wrap;}
+.phone{position:relative;width:340px;height:712px;background:var(--color-background-primary);border:1px solid var(--color-border-secondary);border-radius:30px;overflow:hidden;display:flex;flex-direction:column;}
+.tbar{height:54px;flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:0 12px;border-bottom:.5px solid var(--color-border-tertiary);}
+.av{width:30px;height:30px;border-radius:50%;background:var(--color-background-info);color:var(--color-text-info);display:flex;align-items:center;justify-content:center;font-size:13px;}
+.nm{font-size:13px;font-weight:500;line-height:1.2;}
+.stt{font-size:11px;color:var(--color-text-success);}
+.chip-t{margin-left:auto;font-size:11px;color:var(--color-text-warning);background:var(--color-background-warning);padding:2px 9px;border-radius:20px;}
+.iconbtn{background:none;border:none;color:var(--color-text-secondary);font-size:19px;cursor:pointer;padding:4px;line-height:1;}
+.body{flex:1 1 auto;overflow-y:auto;padding:14px 12px;background:var(--color-background-tertiary);display:flex;flex-direction:column;gap:10px;}
+.bub{max-width:80%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-line;}
+.bub-a{align-self:flex-start;background:var(--color-background-primary);border:.5px solid var(--color-border-tertiary);border-bottom-left-radius:4px;}
+.bub-u{align-self:flex-end;background:var(--color-text-info);color:#fff;border-bottom-right-radius:4px;}
+.card{align-self:stretch;background:var(--color-background-primary);border:1px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:12px;}
+.card.block{border:2px solid var(--color-border-info);}
+.card.ai{border-left:3px solid var(--color-text-info);}
+.tagline{font-size:10px;color:var(--color-text-info);background:var(--color-background-info);display:inline-block;padding:1px 7px;border-radius:10px;margin-bottom:7px;}
+.ct{font-size:13px;font-weight:500;margin:0 0 3px;}
+.cs{font-size:11px;color:var(--color-text-secondary);margin:0 0 10px;line-height:1.5;}
+.opt{display:flex;gap:8px;}
+.btn{flex:1;font-size:12px;padding:9px;border-radius:8px;border:.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;color:var(--color-text-primary);}
+.btn.pri{background:var(--color-text-info);color:#fff;border-color:transparent;}
+.btn.ok{background:var(--color-background-success);color:var(--color-text-success);border-color:transparent;}
+.btn.danger{background:var(--color-background-danger);color:var(--color-text-danger);border-color:transparent;}
+.deferbtn{display:block;width:100%;margin-top:8px;background:none;border:none;color:var(--color-text-secondary);font-size:11px;text-decoration:underline;cursor:pointer;padding:4px;}
+.chip{display:inline-block;font-size:11px;padding:6px 10px;border:.5px solid var(--color-border-secondary);border-radius:16px;margin:0 6px 6px 0;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);}
+.chip.sel{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}
+.chip .q{font-size:10px;color:var(--color-text-secondary);margin-left:3px;}
+.chip.sel .q{color:var(--color-text-info);}
+.qno{font-size:25px;font-weight:500;color:var(--color-text-info);}
+.row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:.5px solid var(--color-border-tertiary);}
+.row.tot{font-weight:500;border-bottom:none;}
+.ipt{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 12px;border-top:.5px solid var(--color-border-tertiary);}
+.ipt input{flex:1;height:34px;border-radius:18px;border:.5px solid var(--color-border-secondary);padding:0 13px;font-size:13px;background:var(--color-background-tertiary);color:var(--color-text-primary);outline:none;}
+.ipt.locked{opacity:.5;}
+.lockbar{flex:0 0 auto;font-size:11px;color:var(--color-text-warning);text-align:center;padding:5px;background:var(--color-background-warning);display:none;}
+.lockbar.on{display:block;}
+.side{width:166px;border:.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:13px;background:var(--color-background-primary);opacity:.5;transition:opacity .15s;}
+.side.on{opacity:1;border-color:var(--color-border-info);}
+.side h4{font-size:12px;font-weight:500;margin:0 0 3px;}
+.side .desc{font-size:10px;color:var(--color-text-secondary);line-height:1.5;margin:0 0 9px;}
+.side .turn{font-size:10px;color:var(--color-text-tertiary);margin:0 0 11px;}
+.side.on .turn{color:var(--color-text-info);}
+.mbtn{display:block;width:100%;text-align:left;font-size:12px;padding:8px 10px;margin-bottom:7px;border-radius:8px;border:.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer;}
+.mbtn:last-child{margin-bottom:0;}
+.mbtn:disabled{cursor:not-allowed;opacity:.55;}
+.mbtn i{color:var(--color-text-info);margin-right:5px;}
+.ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:22px;z-index:9;}
+.ov.on{display:flex;}
+.ov-er{background:rgba(120,20,20,.6);}
+.ov-tm{background:rgba(80,55,5,.55);}
+.ovbox{background:var(--color-background-primary);border-radius:16px;padding:22px 18px;text-align:center;width:100%;}
+.ovbox .ic{font-size:34px;}
+.ovbox h3{font-size:16px;font-weight:500;margin:10px 0 6px;}
+.ovbox p{font-size:12px;color:var(--color-text-secondary);line-height:1.6;margin:0 0 16px;}
+.ov-sheet{align-items:flex-end;background:rgba(0,0,0,.42);padding:0;}
+.sheet{background:var(--color-background-primary);border-radius:18px 18px 0 0;padding:18px 16px 22px;width:100%;}
+.sheet h3{font-size:15px;font-weight:500;margin:0 0 4px;}
+.sheet .sub{font-size:11px;color:var(--color-text-secondary);margin:0 0 12px;}
+.stg{font-size:11px;line-height:1.55;color:var(--color-text-secondary);background:var(--color-background-tertiary);border-radius:8px;padding:9px 11px;margin:0 0 14px;}
+.stg b{color:var(--color-text-primary);font-weight:500;}
+.navrow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:16px auto 0;max-width:400px;}
+.navchip{font-size:11px;padding:5px 11px;border-radius:16px;border:.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;}
+.navchip i{font-size:13px;vertical-align:-2px;margin-right:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="hint">可点击交互原型 · 无需挂号,打开即与 AI 问诊。仅检验、到院取药等需到场的环节才排队取号;治疗为预约时间 + 缴费。处置由大模型决策(右侧按钮模拟);阻塞卡可"暂不决定"继续对话;就诊结束后继续输入自动复诊。急症/超时/退出为打断式弹层。</p>
+
+<div class="stage">
+<div class="phone" id="phone">
+  <div class="tbar">
+    <div class="av">医</div>
+    <div><div class="nm">AI 导诊医生</div><div class="stt">在线 · 急症守护并行</div></div>
+    <div class="chip-t"><i class="ti ti-clock" style="font-size:11px"></i> 24:30</div>
+    <button class="iconbtn" aria-label="退出" onclick="overlay('exit')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="body" id="chatbody">
+    <div class="bub bub-a">你好,我是你的 AI 导诊医生。请描述你的不适。</div>
+    <div class="bub bub-u">嗓子痛、有点发烧,从昨晚开始。</div>
+    <div class="bub bub-a">发烧最高到多少度?有没有咳嗽或呼吸困难?</div>
+    <div class="bub bub-u">38.5℃,有点干咳,呼吸正常。</div>
+    <div class="bub bub-a">为区分细菌或病毒感染,建议做一次血常规检验。</div>
+  </div>
+  <div class="lockbar on" id="lockbar"><i class="ti ti-lock" style="font-size:11px"></i> 请先在上方卡片中操作</div>
+  <div class="ipt locked" id="chatipt">
+    <input id="chatinput" disabled placeholder="请先在上方卡片中操作…">
+    <button class="iconbtn" disabled aria-label="发送" onclick="sendMsg()"><i class="ti ti-send"></i></button>
+  </div>
+
+  <div class="ov ov-er" id="ov-er">
+    <div class="ovbox">
+      <div class="ic" style="color:var(--color-text-danger)"><i class="ti ti-alert-triangle"></i></div>
+      <h3>情况紧急</h3>
+      <p>监测到危急信号,已立即打断当前流程。<br>请立即前往急诊就诊。</p>
+      <button class="btn danger" onclick="closeOv()">我已知晓</button>
+      <p style="font-size:10px;color:var(--color-text-tertiary);margin:12px 0 0">急症守护并行运行,任意环节命中即打断。</p>
+    </div>
+  </div>
+  <div class="ov ov-tm" id="ov-tm">
+    <div class="ovbox">
+      <div class="ic" style="color:var(--color-text-warning)"><i class="ti ti-clock-exclamation"></i></div>
+      <h3>本次导诊已超时</h3>
+      <p>整次导诊只设一处总计时。已超过时限,<br>为保障安全建议前往大医院就诊。</p>
+      <button class="btn" onclick="closeOv()">知道了</button>
+    </div>
+  </div>
+  <div class="ov ov-sheet" id="ov-exit">
+    <div class="sheet" id="exit-ask">
+      <h3>确认结束本次就诊?</h3>
+      <p class="sub">退出后果由"已发生的不可逆动作"决定,而非停在第几步。</p>
+      <div class="stg">
+        · 未缴费 / 未执行 → <b>直接结束,无需结算</b><br>
+        · 已缴费未执行 → <b>原路退款</b><br>
+        · 已执行检验 / 治疗 → <b>费用照收,结果留档</b><br>
+        · 已取药 / 已配送 → <b>按退药政策处理</b>
+      </div>
+      <div class="opt">
+        <button class="btn" onclick="closeOv()">取消,继续就诊</button>
+        <button class="btn danger" onclick="exitConfirm()">确认退出</button>
+      </div>
+    </div>
+    <div class="sheet" id="exit-done" style="display:none;text-align:center">
+      <div class="ic" style="font-size:30px;color:var(--color-text-success)"><i class="ti ti-circle-check"></i></div>
+      <h3>就诊已结束 / 挂起</h3>
+      <p class="sub" style="text-align:center">已按当前阶段完成结算并保存就诊快照。</p>
+      <button class="btn" onclick="closeOv()">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="side" id="side">
+  <h4>模拟大模型决策</h4>
+  <p class="desc">处置方式由 AI 决策,患者不选择。点击下方按钮模拟模型输出对应处置卡片。</p>
+  <p class="turn" id="turn">○ 当前未轮到决策</p>
+  <button class="mbtn" data-p="med" disabled><i class="ti ti-pill"></i>判定:用药</button>
+  <button class="mbtn" data-p="treat" disabled><i class="ti ti-device-heart-monitor"></i>判定:自动化治疗</button>
+  <button class="mbtn" data-p="advice" disabled><i class="ti ti-clipboard-text"></i>判定:仅医嘱</button>
+  <button class="mbtn" data-p="big" disabled><i class="ti ti-building-hospital"></i>判定:转大医院</button>
+</div>
+</div>
+
+<div class="navrow">
+  <span class="navchip" onclick="reset()"><i class="ti ti-refresh"></i>重新演示</span>
+  <span class="navchip" onclick="overlay('er')"><i class="ti ti-urgent"></i>模拟急症</span>
+  <span class="navchip" onclick="overlay('tm')"><i class="ti ti-clock-exclamation"></i>模拟超时</span>
+  <span class="navchip" onclick="overlay('exit')"><i class="ti ti-door-exit"></i>退出结算</span>
+</div>
+</div>
+
+<script>
+var visitEnded=false, stage=null, pendingRedo=null;
+var SEED='<div class="bub bub-a">你好,我是你的 AI 导诊医生。请描述你的不适。</div><div class="bub bub-u">嗓子痛、有点发烧,从昨晚开始。</div><div class="bub bub-a">发烧最高到多少度?有没有咳嗽或呼吸困难?</div><div class="bub bub-u">38.5℃,有点干咳,呼吸正常。</div><div class="bub bub-a">为区分细菌或病毒感染,建议做一次血常规检验。</div>';
+function $(id){ return document.getElementById(id); }
+function rid(p){ return p+(100+Math.floor(Math.random()*899)); }
+
+function overlay(id){ $('ov-'+id).classList.add('on'); }
+function closeOv(){ document.querySelectorAll('.ov').forEach(function(o){o.classList.remove('on');}); $('exit-ask').style.display='block'; $('exit-done').style.display='none'; }
+function exitConfirm(){ $('exit-ask').style.display='none'; $('exit-done').style.display='block'; }
+
+function lock(text){ $('chatipt').classList.add('locked'); var lb=$('lockbar'); lb.classList.add('on'); lb.innerHTML='<i class="ti ti-lock" style="font-size:11px"></i> '+(text||'请先在上方卡片中操作'); var i=$('chatinput'); i.disabled=true; i.placeholder=text||'请先在上方卡片中操作…'; $('chatipt').querySelector('.iconbtn').disabled=true; }
+function unlock(){ $('chatipt').classList.remove('locked'); $('lockbar').classList.remove('on'); var i=$('chatinput'); i.disabled=false; i.placeholder='输入消息…'; $('chatipt').querySelector('.iconbtn').disabled=false; }
+function lockFinal(){ lock(); $('lockbar').innerHTML='<i class="ti ti-circle-check" style="font-size:11px"></i> 本次就诊已结束'; $('chatinput').placeholder='本次就诊已结束'; }
+
+function setPlanTurn(on){ $('side').classList.toggle('on',on); $('turn').textContent=on?'● 等待 AI 决策(点击模拟)':'○ 当前未轮到决策'; document.querySelectorAll('.mbtn').forEach(function(b){ b.disabled=!on; }); }
+
+function msg(role,text){ var b=$('chatbody'); var d=document.createElement('div'); d.className='bub '+(role==='a'?'bub-a':'bub-u'); d.textContent=text; b.appendChild(d); b.scrollTop=b.scrollHeight; }
+function aMsg(t){ msg('a',t); }
+function uMsg(t){ msg('u',t); }
+function card(inner,blocking,cls){ var b=$('chatbody'); var c=document.createElement('div'); c.className='card'+(blocking?' block':'')+(cls?' '+cls:''); c.innerHTML=inner; b.appendChild(c); b.scrollTop=b.scrollHeight; if(blocking) lock(); return c; }
+
+function askTest(){
+  var c=card('<span class="tagline">额外决策 · 对话已锁定</span><p class="ct">需要做检验吗?</p><p class="cs">选择后才能继续。检验属子流程,需预约科室/时间并取号排队。</p><div class="opt"><button class="btn pri" data-k="test">同意检验</button><button class="btn" data-k="notest">不查,直接看诊断</button></div><button class="deferbtn">暂不决定 · 继续聊聊</button>',true);
+  c.querySelectorAll('button[data-k]').forEach(function(btn){btn.onclick=function(){c.remove();decide(btn.dataset.k);};});
+  c.querySelector('.deferbtn').onclick=function(){ deferCard(c, askTest); };
+}
+function decide(k){ if(k==='test'){ aMsg('好的,请先缴纳检验费。'); payCard('test'); } else { aMsg('信息已足够,正在生成诊断…'); diagCard(); promptPlan(); } }
+
+var PAY={test:['血常规检验费',35,20],meds:['对症药品(3 项)',48,28],treat:['自动化治疗费',120,80]};
+function payCard(kind){
+  var p=PAY[kind], amt=p[1], ins=p[2], pay=amt-ins;
+  var c=card('<span class="tagline">缴费 · 待支付</span><p class="ct">'+p[0]+'</p><div class="row"><span>项目金额</span><span>¥'+amt+'</span></div><div class="row"><span>医保统筹</span><span style="color:var(--color-text-success)">-¥'+ins+'</span></div><div class="row tot"><span>实付</span><span>¥'+pay+'</span></div><button class="btn pri" style="margin-top:10px" data-go="1">确认支付 ¥'+pay+'</button><button class="deferbtn">暂不缴费 · 继续聊聊</button>',true);
+  c.querySelector('button[data-go]').onclick=function(){ c.remove(); payDone(kind,pay); };
+  c.querySelector('.deferbtn').onclick=function(){ deferCard(c, function(){ payCard(kind); }); };
+}
+function payDone(kind,pay){
+  uMsg('已支付 ¥'+pay);
+  if(kind==='test'){ aMsg('缴费成功,请选择检验科室与时间。'); labBookingCard(); }
+  else if(kind==='meds'){ aMsg('支付成功,请选择取药方式。'); pickupCard(); }
+  else { aMsg('支付成功,治疗预约已确认。'); infoActionCard('治疗预约确认','预约已确认','预约号 '+rid('T-')+' · 请按预约时间到场,治疗室届时自动开始,无需现场排队。','我知道了 · 完成', endVisit); }
+}
+function infoActionCard(tag,title,text,btn,next){ var c=card('<span class="tagline">'+tag+'</span><p class="ct">'+title+'</p><p class="cs">'+text+'</p><button class="btn pri" style="width:100%" data-go="1">'+btn+'</button>',true,'ai'); c.querySelector('button[data-go]').onclick=function(){ c.remove(); next(); }; }
+
+function bookingCard(cfg){
+  var dhtml=cfg.depts.map(function(d,i){return '<span class="chip" data-g="dept" data-v="'+d+'"'+(i===0?' data-def="1"':'')+'>'+d+'</span>';}).join('');
+  var shtml=cfg.slots.map(function(s,i){return '<span class="chip" data-g="slot" data-v="'+s[0]+'" data-q="'+s[1]+'"'+(i===0?' data-def="1"':'')+'>'+s[0]+'<span class="q">排队 '+s[1]+'</span></span>';}).join('');
+  var c=card('<span class="tagline">'+cfg.tag+'</span><p class="ct">'+cfg.title+'</p><p class="cs" style="margin:0 0 7px">选择科室</p><div>'+dhtml+'</div><p class="cs" style="margin:9px 0 7px">选择时间 · 含当前排队人数</p><div>'+shtml+'</div><button class="btn pri" style="margin-top:8px;width:100%" data-go="1">确认预约</button><button class="deferbtn">暂不预约 · 继续聊聊</button>',true);
+  c.querySelectorAll('.chip').forEach(function(ch){ if(ch.dataset.def) ch.classList.add('sel'); ch.onclick=function(){ c.querySelectorAll('.chip[data-g="'+ch.getAttribute('data-g')+'"]').forEach(function(o){o.classList.remove('sel');}); ch.classList.add('sel'); }; });
+  c.querySelector('button[data-go]').onclick=function(){
+    var dep=c.querySelector('.chip[data-g="dept"].sel'), sl=c.querySelector('.chip[data-g="slot"].sel');
+    c.remove(); cfg.confirm(dep.getAttribute('data-v'), sl.getAttribute('data-v'), parseInt(sl.getAttribute('data-q'),10));
+  };
+  c.querySelector('.deferbtn').onclick=function(){ deferCard(c, function(){ bookingCard(cfg); }); };
+}
+function labBookingCard(){
+  bookingCard({tag:'检验预约 · 科室/时间',title:'预约血常规采样',depts:['检验科 1 号窗','检验科 2 号窗'],slots:[['10:30',5],['11:00',2],['11:30',8]],
+    confirm:function(dept,slot,q){ uMsg('预约:'+dept+' · '+slot); aMsg('预约成功,请取号排队采样。'); queueCard({tag:'检验排队 · 取号',title:'检验取号',no:rid('B-'),ahead:q,wait:Math.max(2,q*3)+' 分钟',btn:'采样完成 · 查看结果',next:afterLab}); }});
+}
+function afterLab(){ aMsg('检验完成,结果已回填,综合判断已可确诊。'); diagCard(); promptPlan(); }
+
+function queueCard(cfg){
+  var aheadTxt=cfg.ahead>0?('前面还有 <b style="color:var(--color-text-primary)">'+cfg.ahead+'</b> 人 · 预计 '+cfg.wait):('当前无人排队 · 可立即进行');
+  var c=card('<span class="tagline">'+cfg.tag+'</span><p class="ct">'+cfg.title+'</p><div style="text-align:center;padding:8px 0 4px"><div class="qno">'+cfg.no+'</div><div class="cs" style="margin:5px 0 0">'+aheadTxt+'</div></div><button class="btn pri" style="margin-top:6px;width:100%" data-go="1">'+cfg.btn+'</button>',true);
+  c.querySelector('button[data-go]').onclick=function(){ c.remove(); cfg.next(); };
+}
+
+function diagCard(){ card('<span class="tagline" style="color:var(--color-text-success);background:var(--color-background-success)">已确诊 · 置信度高</span><p class="ct">急性咽炎(病毒性可能大)</p><p class="cs" style="margin:0">依据:症状 + 体温 38.5℃ + 血常规结果。</p>',false); }
+function promptPlan(){ aMsg('正在结合诊断制定处置方案…'); stage='await_plan'; setPlanTurn(true); lock('AI 正在决策处置方案 · 用右侧按钮模拟'); }
+function aiDecide(p){
+  if(stage!=='await_plan') return; stage=null; setPlanTurn(false);
+  if(p==='med'){ aMsg('AI 处置决策:用药。'); planMedCard(); payCard('meds'); }
+  else if(p==='treat'){ aMsg('AI 处置决策:自动化治疗(本院具备能力)。'); treatBookingCard(); }
+  else if(p==='advice'){ aMsg('AI 处置决策:仅医嘱调养。'); orderCard('ti-clipboard-text','医嘱 · AI 已生成','多休息、多饮水、观察体温变化'); endVisit(); }
+  else { aMsg('AI 评估:本院不具备该治疗能力。'); bigHospCard(); }
+}
+function planMedCard(){ card('<span class="tagline">处置方案 · AI 已决策</span><p class="ct"><i class="ti ti-pill" style="color:var(--color-text-info);margin-right:5px"></i>用药</p><p class="cs" style="margin:0">对乙酰氨基酚 + 含片;饭后服用,每日 3 次。已设用药提醒,缴费后取药或配送。</p>',false,'ai'); }
+function treatBookingCard(){
+  bookingCard({tag:'治疗预约 · 项目/时间',title:'预约自动化治疗',depts:['理疗室 A','理疗室 B'],slots:[['明日 10:00',1],['明日 14:00',3],['后天 09:00',0]],
+    confirm:function(dept,slot,q){ uMsg('预约:'+dept+' · '+slot); aMsg('预约已锁定,请缴纳治疗费用。'); payCard('treat'); }});
+}
+function bigHospCard(){ card('<span class="tagline" style="color:var(--color-text-warning);background:var(--color-background-warning)">升级 · 转诊</span><p class="ct"><i class="ti ti-building-hospital" style="color:var(--color-text-warning);margin-right:5px"></i>建议前往大医院就诊</p><p class="cs" style="margin:0">本院不具备该治疗能力,本次导诊到此结束,资料已留档。</p>',false,'ai'); lockFinal(); }
+function pickupCard(){ var c=card('<span class="tagline">取药方式 · 请选择</span><div class="opt"><button class="btn pri" data-m="self">到院自取</button><button class="btn" data-m="deliver">配送到家</button></div><button class="deferbtn">暂不决定 · 继续聊聊</button>',true); c.querySelectorAll('button[data-m]').forEach(function(btn){btn.onclick=function(){c.remove();pickup(btn.dataset.m);};}); c.querySelector('.deferbtn').onclick=function(){ deferCard(c, pickupCard); }; }
+function pickup(m){ if(m==='self'){ uMsg('到院自取'); aMsg('请到药房取号排队取药。'); queueCard({tag:'取药排队 · 取号',title:'药房取药',no:rid('M-'),ahead:4,wait:'约 8 分钟',btn:'取药完成',next:afterPickup}); } else { uMsg('配送到家'); aMsg('药品今日送达,配送无需排队。'); afterPickup(); } }
+function afterPickup(){ orderCard('ti-bell','用药提醒','每日 3 次,饭后服用 · 连续 3 天'); endVisit(); }
+function orderCard(icon,title,text){ card('<p class="ct"><i class="ti '+icon+'" style="color:var(--color-text-info);margin-right:5px"></i>'+title+'</p><p class="cs" style="margin:0">'+text+'</p>',false,'ai'); }
+function endVisit(){ aMsg('处置已安排,本次就诊到此结束。随访提醒已设置:明日 09:00 复测体温。'); card('<span class="tagline" style="color:var(--color-text-success);background:var(--color-background-success)">流程正常结束</span><p class="ct">本次就诊已完成</p><p class="cs" style="margin:0">如仍有不适,直接在下方继续输入即可自动开始复诊。</p>',false); visitEnded=true; unlock(); $('chatinput').placeholder='仍有不适?继续描述将自动开始复诊…'; $('chatinput').focus(); }
+function startRevisit(){ aMsg('检测到就诊结束后继续对话。已读取上次完整诊断(急性咽炎)与用药记录,直接为你开始复诊。'); aMsg('正在结合上次情况分析新症状…'); askTest(); }
+function deferCard(c, redoFn){ c.remove(); aMsg('好的,这一步先不决定。你可以继续和我说说顾虑,准备好了我再把选项给你。'); unlock(); $('chatinput').placeholder='说说你的顾虑或问题…'; $('chatinput').focus(); pendingRedo=redoFn; }
+function sendMsg(){ var i=$('chatinput'); if(i.disabled) return; var t=i.value.trim(); if(!t) return; uMsg(t); i.value=''; if(pendingRedo){ var r=pendingRedo; pendingRedo=null; aMsg('我理解你的顾虑。如果可以,我们继续刚才那一步:'); r(); return; } if(visitEnded){ visitEnded=false; startRevisit(); } }
+function reset(){ closeOv(); stage=null; visitEnded=false; pendingRedo=null; setPlanTurn(false); $('chatbody').innerHTML=SEED; askTest(); }
+
+document.querySelectorAll('.mbtn').forEach(function(b){ b.onclick=function(){ aiDecide(b.dataset.p); }; });
+$('chatinput').addEventListener('keydown',function(e){ if(e.key==='Enter') sendMsg(); });
+askTest();
+</script>
+</body>
+</html>

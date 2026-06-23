@@ -1,0 +1,60 @@
+flowchart TB
+    subgraph FE["前端"]
+        UI["对话 UI + 卡片渲染<br/>用户在卡片上操作"]
+    end
+
+    subgraph ORCH["编排层（确定性核心 · 就诊状态的真相来源）"]
+        SM["会话状态机<br/>问诊 → 是否检验 → 确诊 → 处置 → 结束 → 复诊"]
+        VAL["意图校验<br/>① 当前状态合法转移？<br/>② 本院能力清单是否具备？"]
+        CARD["卡片编排器<br/>填充金额 / 科室 / 排队人数 / 取药方式"]
+        SAGA["副作用账本 + 补偿（Saga）<br/>退出结算 · 退款 · 留档"]
+        TIMER["总计时器（超时升级）"]
+    end
+
+    subgraph AID["AI 决策层（无状态 · 每次喂入就诊快照）"]
+        ASK["问诊 agent<br/>采集症状 + 判定信息充分度"]
+        DIAG["诊断 agent<br/>确诊 + 依据 + 置信度"]
+        PLAN["处置 agent<br/>用药 / 治疗 / 仅医嘱 / 转诊"]
+    end
+
+    GUARD["⚡ 急症守护 agent（外挂并行）<br/>实时读全量信息流"]
+
+    subgraph EXEC["执行 / 能力层（幂等 + 可补偿）"]
+        PAY["缴费"]
+        BOOK["预约 / 取号"]
+        PHARM["药房 / 配送 / 用药提醒"]
+    end
+
+    ERX["终态：前往急诊"]
+
+    %% 主回路
+    UI -->|"用户消息 / 卡片操作结果"| SM
+    SM -->|"喂快照 · 召唤对应阶段 agent"| AID
+    AID -->|"MCP：推进下一步意图<br/>（选择 + 结构化参数）"| VAL
+    VAL -->|"合法 + 具备"| CARD
+    CARD -->|"卡片数据下发"| UI
+    SM -->|"用户确认后才触发"| EXEC
+    EXEC -->|"结果回填（检验值 / 缴费态 / 取号）"| SM
+    SAGA -.->|"退款 / 留档"| EXEC
+
+    %% 能力不具备分支
+    VAL -.->|"不具备能力 → 不出卡"| PLAN
+
+    %% 急症旁路（高优先级抢占）
+    SM -. "事件流（对话 / 体征 / 检验）" .-> GUARD
+    GUARD ==>|"高优先级打断信号"| SM
+    SM ==>|"抢占当前阻塞卡 + 结算未完动作"| ERX
+
+    classDef orch fill:#e6f1fb,stroke:#3a6ff0,color:#1f1e1c;
+    classDef ai fill:#ece9f7,stroke:#6b54c8,color:#1f1e1c;
+    classDef exec fill:#faeeda,stroke:#c98a1e,color:#1f1e1c;
+    classDef guard fill:#fcebeb,stroke:#df6a3a,color:#1f1e1c;
+    classDef term fill:#e1f5ee,stroke:#2f9e6f,color:#1f1e1c;
+    classDef fe fill:#ffffff,stroke:#9bb6ee,color:#1f1e1c;
+
+    class SM,VAL,CARD,SAGA,TIMER orch;
+    class ASK,DIAG,PLAN ai;
+    class PAY,BOOK,PHARM exec;
+    class GUARD guard;
+    class ERX term;
+    class UI fe;
