@@ -20,6 +20,7 @@ flags：
 - `-provider`：`openai` | `deepseek` | `qwen`，默认 `openai`。
 - `-model`：默认按 provider 取（见下表），可覆盖。
 - `-prompt`：默认 `用一句话解释什么是布洛芬。`，可覆盖。
+- `-base-url`：覆盖 base URL（第三方中转 / 自建网关用；填到 `/chat/completions` 之前的路径，通常以 `/v1` 结尾）。留空走 provider 默认。设置时一律经 `openaicompat.New(Config{BaseURL:override,...})` 构造，绕开 `NewDeepSeek`/`NewQwen` 预设。
 
 provider 映射：
 

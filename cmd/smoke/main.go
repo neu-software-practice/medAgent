@@ -5,6 +5,7 @@
 //
 //	go run ./cmd/smoke -provider openai
 //	go run ./cmd/smoke -provider deepseek -model deepseek-chat -prompt "..."
+//	go run ./cmd/smoke -provider openai -base-url https://中转站/v1 -model gpt-4o-mini
 package main
 
 import (
@@ -40,6 +41,7 @@ func main() {
 	provider := flag.String("provider", "openai", "provider: openai | deepseek | qwen")
 	model := flag.String("model", "", "模型名（留空用 provider 默认）")
 	prompt := flag.String("prompt", "用一句话解释什么是布洛芬。", "发给模型的问题")
+	baseURL := flag.String("base-url", "", "覆盖 base URL（第三方中转/自建网关；填到 /chat/completions 之前的路径，通常以 /v1 结尾；留空走 provider 默认）")
 	flag.Parse()
 
 	spec, ok := providers[*provider]
@@ -59,13 +61,21 @@ func main() {
 		m = spec.defaultModel
 	}
 
+	// base URL 优先级：-base-url 覆盖 > provider 默认。openai 自带默认；
+	// deepseek/qwen 默认走预设构造器（map 里 baseURL 留空），但可被 -base-url
+	// 覆盖以接第三方中转/自建网关。
+	effectiveBase := spec.baseURL
+	if *baseURL != "" {
+		effectiveBase = *baseURL
+	}
+
 	var client ai.LLMClient
-	switch *provider {
-	case "openai":
-		client = openaicompat.New(openaicompat.Config{BaseURL: spec.baseURL, APIKey: key, Model: m})
-	case "deepseek":
+	switch {
+	case effectiveBase != "":
+		client = openaicompat.New(openaicompat.Config{BaseURL: effectiveBase, APIKey: key, Model: m})
+	case *provider == "deepseek":
 		client = openaicompat.NewDeepSeek(key, m)
-	case "qwen":
+	default: // qwen
 		client = openaicompat.NewQwen(key, m)
 	}
 
