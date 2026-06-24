@@ -1,14 +1,17 @@
 package harness
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"medagent/ai"
+	"medagent/ai/consultlog"
 	"medagent/ai/openaicompat"
 )
 
@@ -53,11 +56,18 @@ func TestRealFeverFlow(t *testing.T) {
 	model := getenvOr("MEDAGENT_LLM_MODEL", pk.defModel)
 	baseURL := os.Getenv("MEDAGENT_LLM_BASE_URL")
 
-	client := newRealClient(provider, baseURL, key, model)
+	// 真实 client 外再包一层 consultlog 装饰器：本次诊疗的所有 LLM 调用都会
+	// 按 visitID 记进 {logDir}/{visitID}.jsonl，端到端验证日志系统。
+	rawClient := newRealClient(provider, baseURL, key, model)
+	logDir := t.TempDir()
+	visitID := consultlog.NewVisitID()
+	client := consultlog.Wrap(rawClient, consultlog.NewFileLogger(logDir))
 	layer := ai.NewDecisionLayer(client)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
+	ctx = consultlog.WithVisitID(ctx, visitID)
+	t.Logf("📁 visitID=%s  日志目录=%s", visitID, logDir)
 
 	deps := Deps{
 		Layer: layer,
@@ -114,6 +124,46 @@ func TestRealFeverFlow(t *testing.T) {
 	if len(out.Medications) == 0 {
 		t.Logf("ℹ️ 模型本次选择 %s（未开药）——集成验证不依赖具体临床选择", out.Plan)
 	}
+
+	// 验证诊疗日志：本次诊疗应生成一个 per-visit 文件，含各 agent 的调用审计记录。
+	recs := readVisitLog(t, filepath.Join(logDir, visitID+".jsonl"))
+	if len(recs) == 0 {
+		t.Fatalf("未生成诊疗日志：%s", filepath.Join(logDir, visitID+".jsonl"))
+	}
+	schemas := map[string]int{}
+	for _, r := range recs {
+		schemas[r.Schema]++
+	}
+	t.Logf("📁 诊疗日志：%d 条调用记录，schema 分布=%v", len(recs), schemas)
+	for _, want := range []string{"interview", "triage_decide", "treatment_plan"} {
+		if schemas[want] == 0 {
+			t.Fatalf("诊疗日志缺少 %q 调用记录：%v", want, schemas)
+		}
+	}
+}
+
+// readVisitLog 读回一次诊疗的 per-visit JSONL 日志文件。
+func readVisitLog(t *testing.T, path string) []consultlog.CallRecord {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	var out []consultlog.CallRecord
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for sc.Scan() {
+		var r consultlog.CallRecord
+		if err := json.Unmarshal(sc.Bytes(), &r); err != nil {
+			t.Fatalf("解析日志行失败：%v", err)
+		}
+		out = append(out, r)
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 // newRealClient 按 provider/baseURL 构造真实 openaicompat 客户端。
