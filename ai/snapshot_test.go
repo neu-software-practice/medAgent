@@ -87,3 +87,14 @@ func TestBuildMessagesRendersFeedback(t *testing.T) {
 		t.Fatal("未渲染 MissingHint")
 	}
 }
+
+func TestBuildMessagesRendersFeedbackExtraFields(t *testing.T) {
+	s := Snapshot{Feedback: &OrchestratorFeedback{NextExpected: "triage_decide", CardDeferred: true}}
+	block := buildMessages(s)[0].Content
+	if !strings.Contains(block, "triage_decide") {
+		t.Fatal("未渲染 NextExpected")
+	}
+	if !strings.Contains(block, "暂缓") {
+		t.Fatal("未渲染 CardDeferred")
+	}
+}

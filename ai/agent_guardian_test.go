@@ -53,3 +53,14 @@ func TestGuardianHitWithEmptyReasonIsSchemaError(t *testing.T) {
 		t.Fatalf("命中但缺 reason 应为 SchemaError，得到 hit=%v err=%v", hit, err)
 	}
 }
+
+func TestNewGuardianWiring(t *testing.T) {
+	// 覆盖公开构造器 NewGuardian（其余守护测试直接构造 guardianAgent）。
+	g := NewGuardian(&FakeLLM{On: func(CompletionRequest) (CompletionResult, error) {
+		return StructuredOf(emergencyWire{Hit: true, Reason: "危急"}), nil
+	}})
+	ei, hit, err := g.Assess(context.Background(), Snapshot{}, Event{Kind: "vital", Data: "胸痛"})
+	if err != nil || !hit || ei.Reason == "" {
+		t.Fatalf("NewGuardian 装配异常：ei=%+v hit=%v err=%v", ei, hit, err)
+	}
+}

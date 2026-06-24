@@ -104,3 +104,20 @@ func TestRunStructuredExhaustsRetries(t *testing.T) {
 		t.Fatalf("重试次数不符：attempts=%d calls=%d", se.Attempts, calls)
 	}
 }
+
+func TestRunStructuredUnmarshalFailureRetries(t *testing.T) {
+	// 合法 JSON 但形状错误（数组无法反序列化进结构体）触发 json.Unmarshal 失败路径（spec §8 的另一触发器）。
+	calls := 0
+	llm := &FakeLLM{On: func(CompletionRequest) (CompletionResult, error) {
+		calls++
+		return StructuredOf([]int{1, 2, 3}), nil
+	}}
+	_, err := run(context.Background(), llm)
+	var se *SchemaError
+	if !errors.As(err, &se) {
+		t.Fatalf("期望 *SchemaError，得到 %v", err)
+	}
+	if calls != SchemaRetryMax+1 {
+		t.Fatalf("期望重试 %d 次，实际 %d", SchemaRetryMax+1, calls)
+	}
+}
