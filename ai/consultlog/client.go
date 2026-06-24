@@ -38,7 +38,7 @@ func (c *Client) Complete(ctx context.Context, req ai.CompletionRequest) (ai.Com
 		Time:      start,
 		Schema:    req.Schema.Name,
 		System:    req.System,
-		Messages:  req.Messages,
+		Messages:  messagesOf(req.Messages),
 		LatencyMS: time.Since(start).Milliseconds(),
 	}
 	if err != nil {
