@@ -20,11 +20,12 @@ type Deps struct {
 
 // Outcome 是一次就诊的终态。
 type Outcome struct {
-	Final     string // "ADVICE" | "REFERRAL"
-	Diagnosis *ai.Diagnosis
-	Plan      ai.PlanKind
-	Advice    string
-	Trace     []string
+	Final       string // "ADVICE" | "REFERRAL"
+	Diagnosis   *ai.Diagnosis
+	Plan        ai.PlanKind
+	Advice      string
+	Medications []ai.Medication
+	Trace       []string
 }
 
 const (
@@ -114,7 +115,8 @@ func treatmentPhase(ctx context.Context, d Deps, snap *ai.Snapshot, trace []stri
 			final = "REFERRAL"
 		}
 		return Outcome{
-			Final: final, Diagnosis: snap.Diagnosis, Plan: tp.Plan, Advice: tp.Advice, Trace: trace,
+			Final: final, Diagnosis: snap.Diagnosis, Plan: tp.Plan, Advice: tp.Advice,
+			Medications: tp.Medications, Trace: trace,
 		}, nil
 	}
 }
