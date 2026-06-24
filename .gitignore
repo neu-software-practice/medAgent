@@ -9,3 +9,6 @@
 *.exe
 *.test
 *.out
+
+# 诊疗日志（cmd/consult 默认输出）
+/logs/
