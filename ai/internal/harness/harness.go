@@ -28,8 +28,9 @@ type Outcome struct {
 }
 
 const (
-	maxInterviewTurns = 20
-	maxTriageRounds   = 10
+	maxInterviewTurns  = 20
+	maxTriageRounds    = 10
+	maxTreatmentRounds = 5
 )
 
 // RunVisit 驱动一次就诊：问诊采集 → 收敛环 → 处置 → 终态。
@@ -92,8 +93,13 @@ func interviewPhase(ctx context.Context, d Deps, snap *ai.Snapshot, trace *[]str
 	return fmt.Errorf("问诊未在 %d 轮内收敛", maxInterviewTurns)
 }
 
+// treatmentPhase 以值接收 trace 并在终态塞进 Outcome 返回（调用方不再续用 trace）；
+// interviewPhase 则用指针，因为收敛环还要在它返回后继续追加。
 func treatmentPhase(ctx context.Context, d Deps, snap *ai.Snapshot, trace []string) (Outcome, error) {
-	for {
+	for round := 0; ; round++ {
+		if round >= maxTreatmentRounds {
+			return Outcome{}, fmt.Errorf("处置环未在 %d 轮内收敛", maxTreatmentRounds)
+		}
 		tp, err := d.Layer.Treatment(ctx, *snap)
 		if err != nil {
 			return Outcome{}, err

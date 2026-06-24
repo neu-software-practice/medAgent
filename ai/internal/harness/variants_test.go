@@ -39,6 +39,7 @@ func TestVariantMultiRoundTest(t *testing.T) {
 		case "treatment_plan":
 			return ai.StructuredOf(ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "清淡饮食"}), nil
 		}
+		t.Fatalf("未预期 schema %q", req.Schema.Name)
 		return ai.CompletionResult{}, nil
 	}}
 	out, err := RunVisit(context.Background(), Deps{
@@ -72,6 +73,7 @@ func TestVariantInterviewBounce(t *testing.T) {
 		case "treatment_plan":
 			return ai.StructuredOf(ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "规律作息"}), nil
 		}
+		t.Fatalf("未预期 schema %q", req.Schema.Name)
 		return ai.CompletionResult{}, nil
 	}}
 	out, err := RunVisit(context.Background(), Deps{
@@ -106,6 +108,7 @@ func TestVariantCapabilityMissingReferral(t *testing.T) {
 			return ai.StructuredOf(ai.TreatmentPlan{Plan: ai.PlanReferral,
 				Advice: "尽快前往上级医院", ReferralReason: "本院无心脏介入能力"}), nil
 		}
+		t.Fatalf("未预期 schema %q", req.Schema.Name)
 		return ai.CompletionResult{}, nil
 	}}
 	out, err := RunVisit(context.Background(), Deps{
@@ -141,6 +144,7 @@ func TestVariantRevisitCarriesPrior(t *testing.T) {
 		case "treatment_plan":
 			return ai.StructuredOf(ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "继续观察"}), nil
 		}
+		t.Fatalf("未预期 schema %q", req.Schema.Name)
 		return ai.CompletionResult{}, nil
 	}}
 	out, err := RunVisit(context.Background(), Deps{

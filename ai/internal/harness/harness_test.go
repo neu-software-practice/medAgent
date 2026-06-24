@@ -50,18 +50,10 @@ func scriptedLLM(t *testing.T) *ai.FakeLLM {
 
 func TestWalkthroughAcutePharyngitis(t *testing.T) {
 	llm := scriptedLLM(t)
-	answers := []string{"嗓子痛、有点发烧，从昨晚开始。", "38.5℃，有点干咳，呼吸正常。"}
-	i := 0
 	deps := Deps{
-		Layer: ai.NewDecisionLayer(llm),
-		Caps:  map[string]bool{},
-		Patient: func(string) string {
-			msg := answers[i]
-			if i < len(answers)-1 {
-				i++
-			}
-			return msg
-		},
+		Layer:   ai.NewDecisionLayer(llm),
+		Caps:    map[string]bool{},
+		Patient: seqPatient("嗓子痛、有点发烧，从昨晚开始。", "38.5℃，有点干咳，呼吸正常。"),
 		TestResults: func([]string) []ai.TestResult {
 			return []ai.TestResult{{Item: "血常规", Value: "淋巴细胞偏高，提示病毒"}}
 		},
