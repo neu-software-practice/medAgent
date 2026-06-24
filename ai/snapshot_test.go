@@ -69,8 +69,8 @@ func TestBuildMessagesCompressesEarlyTurns(t *testing.T) {
 	if got := len(msgs) - 1; got != InterviewRawTurns {
 		t.Fatalf("期望 %d 条原文消息，得到 %d", InterviewRawTurns, got)
 	}
-	if !strings.Contains(msgs[0].Content, "早期对话摘要") {
-		t.Fatalf("快照块缺少早期对话摘要：\n%s", msgs[0].Content)
+	if !strings.Contains(msgs[0].Content, "早期对话记录") {
+		t.Fatalf("快照块缺少早期对话记录：\n%s", msgs[0].Content)
 	}
 }
 

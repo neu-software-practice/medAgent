@@ -54,6 +54,23 @@ func TestRunStructuredCanceledContext(t *testing.T) {
 	}
 }
 
+func TestRunStructuredMidFlightCancel(t *testing.T) {
+	// ctx 在 Complete 执行期间被取消（模拟急症抢占/超时）应以原始 ctx 错误上抛，
+	// 不归类为 ErrLLM（spec §8）。
+	ctx, cancel := context.WithCancel(context.Background())
+	llm := &FakeLLM{On: func(CompletionRequest) (CompletionResult, error) {
+		cancel()
+		return CompletionResult{}, context.Canceled
+	}}
+	_, err := run(ctx, llm)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("期望 context.Canceled，得到 %v", err)
+	}
+	if errors.Is(err, ErrLLM) {
+		t.Fatal("mid-flight 取消不应被归类为 ErrLLM")
+	}
+}
+
 func TestRunStructuredRetriesThenSucceeds(t *testing.T) {
 	n := 0
 	llm := &FakeLLM{On: func(CompletionRequest) (CompletionResult, error) {

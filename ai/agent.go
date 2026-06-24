@@ -27,6 +27,11 @@ func runStructured[T validatable](
 		}
 		res, err := llm.Complete(ctx, CompletionRequest{System: system, Messages: msgs, Schema: schema})
 		if err != nil {
+			// mid-flight 取消（急症抢占/超时）以原始 ctx 错误上抛，不归类为 ErrLLM，
+			// 便于编排层区分“被打断”与“LLM 故障”（spec §8）。
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return zero, ctxErr
+			}
 			return zero, fmt.Errorf("%w: %s: %v", ErrLLM, agentName, err)
 		}
 		lastRaw = res.Raw

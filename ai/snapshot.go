@@ -66,7 +66,7 @@ func renderSnapshotBlock(s Snapshot, early []DialogTurn) string {
 		}
 	}
 	if len(early) > 0 {
-		b.WriteString("早期对话摘要:\n")
+		b.WriteString("早期对话记录:\n")
 		for _, tn := range early {
 			who := "患者"
 			if tn.Role == "doctor" {
