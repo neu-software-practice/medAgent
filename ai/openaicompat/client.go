@@ -25,7 +25,7 @@ type Config struct {
 	APIKey     string
 	Model      string
 	Timeout    time.Duration
-HTTPClient *http.Client
+	HTTPClient *http.Client
 }
 
 // Client 是 OpenAI 兼容的 ai.LLMClient 实现。
