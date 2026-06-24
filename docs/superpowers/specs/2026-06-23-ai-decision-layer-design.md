@@ -233,6 +233,8 @@ type CompletionResult struct {
 
 将来真实实现的映射：Claude → 强制 tool-use（tool 参数即 schema，返回 tool input）；JSON-mode → `response_format`；fake → 直接吐预设 `Structured`。**推迟选型不影响 agent 逻辑**。
 
+> **接入真实 provider 时的已知约束（来自最终审查）：** `buildMessages` 产出的首条"快照块"是 `user` 角色，紧随其后保留的最近对话若以患者轮（同样映射为 `user`）开头，会出现**连续两条 user 消息**；guardian 把事件作为 `user` 追加在末尾也是同理。fake 忽略角色故单测无碍，但 Anthropic 风格 API 不接受连续同角色消息。**真实 `LLMClient` adapter 必须合并连续同角色消息**（或把快照块并入首条 user 轮）。此外，schema-invalid 重试的纠正消息是把上次原始输出作为 user 文本回灌（provider 中立），而非作为 assistant/tool 轮重插——adapter 作者需知晓这一点。
+
 ### 5.2 agent 执行骨架（6 步，统一）
 
 ```
