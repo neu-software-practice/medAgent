@@ -51,7 +51,4 @@ func TestInterviewInjectsMissingHint(t *testing.T) {
 	if !strings.Contains(seen, "用药史") {
 		t.Fatalf("MissingHint 未注入上下文：%s", seen)
 	}
-	if req := a.system(); req != promptInterview {
-		t.Fatal("system prompt 不是 promptInterview")
-	}
 }

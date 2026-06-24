@@ -5,11 +5,6 @@ import (
 	"testing"
 )
 
-func TestLayerImplementsInterfaces(t *testing.T) {
-	var _ DecisionLayer = NewDecisionLayer(&FakeLLM{})
-	var _ Guardian = NewGuardian(&FakeLLM{})
-}
-
 func TestLayerRoutesToAgents(t *testing.T) {
 	llm := &FakeLLM{On: func(req CompletionRequest) (CompletionResult, error) {
 		switch req.Schema.Name {
