@@ -14,7 +14,10 @@ func parseResult(body []byte) (ai.CompletionResult, error) {
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 解析响应失败 (%v): %w", err, ai.ErrLLM)
 	}
-	if len(resp.Choices) == 0 || len(resp.Choices[0].Message.ToolCalls) == 0 {
+	if len(resp.Choices) == 0 {
+		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 响应缺少 choices: %w", ai.ErrLLM)
+	}
+	if len(resp.Choices[0].Message.ToolCalls) == 0 {
 		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 响应缺少 tool_calls: %w", ai.ErrLLM)
 	}
 	args := resp.Choices[0].Message.ToolCalls[0].Function.Arguments

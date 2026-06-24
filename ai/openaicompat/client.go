@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"medagent/ai"
 )
@@ -46,6 +48,7 @@ func New(cfg Config) *Client {
 		}
 		hc = &http.Client{Timeout: to}
 	}
+	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
 	return &Client{cfg: cfg, http: hc}
 }
 
@@ -99,8 +102,12 @@ func (c *Client) Complete(ctx context.Context, req ai.CompletionRequest) (ai.Com
 // snippet 截断响应体，避免错误信息/日志爆量。
 func snippet(b []byte) string {
 	const max = 512
-	if len(b) > max {
-		return string(b[:max]) + "…"
+	if len(b) <= max {
+		return string(b)
 	}
-	return string(b)
+	end := max
+	for end > 0 && !utf8.RuneStart(b[end]) {
+		end--
+	}
+	return string(b[:end]) + "…"
 }

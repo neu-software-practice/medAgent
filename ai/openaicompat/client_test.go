@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"medagent/ai"
 )
@@ -83,5 +85,33 @@ func TestConstructors_SetBaseURL(t *testing.T) {
 	}
 	if c := NewQwen("k", "qwen-plus"); c.cfg.BaseURL != "https://dashscope.aliyuncs.com/compatible-mode/v1" {
 		t.Errorf("qwen base = %q", c.cfg.BaseURL)
+	}
+}
+
+func TestSnippet_TruncatesOnRuneBoundary(t *testing.T) {
+	// Build a byte slice with many multi-byte UTF-8 runes (Chinese chars) longer than 512 bytes
+	var longStr string
+	for i := 0; i < 200; i++ {
+		longStr += "医"
+	}
+	b := []byte(longStr)
+
+	result := snippet(b)
+
+	// The result (minus the trailing "…") should be valid UTF-8
+	if !utf8.ValidString(strings.TrimSuffix(result, "…")) {
+		t.Errorf("snippet result is not valid UTF-8: %q", result)
+	}
+
+	// The length should not exceed 512 bytes (plus the "…")
+	if len(result) > 512+3 { // "…" is 3 bytes in UTF-8
+		t.Errorf("snippet result exceeds expected length: %d bytes", len(result))
+	}
+}
+
+func TestNew_TrimsTrailingSlashBaseURL(t *testing.T) {
+	c := New(Config{BaseURL: "https://host/v1/", APIKey: "k", Model: "m"})
+	if c.cfg.BaseURL != "https://host/v1" {
+		t.Errorf("BaseURL = %q, want %q", c.cfg.BaseURL, "https://host/v1")
 	}
 }
