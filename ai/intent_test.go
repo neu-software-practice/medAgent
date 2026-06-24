@@ -20,10 +20,12 @@ func TestTriageDecisionValidate(t *testing.T) {
 		{"confirm_ok", TriageDecision{Decision: TriageConfirm, Diagnosis: &Diagnosis{Name: "急性咽炎", Confidence: 0.9}}, true},
 		{"confirm_no_diag", TriageDecision{Decision: TriageConfirm}, false},
 		{"confirm_bad_conf", TriageDecision{Decision: TriageConfirm, Diagnosis: &Diagnosis{Name: "x", Confidence: 1.5}}, false},
+		{"confirm_neg_conf", TriageDecision{Decision: TriageConfirm, Diagnosis: &Diagnosis{Name: "x", Confidence: -0.1}}, false},
 		{"interview_ok", TriageDecision{Decision: TriageInterview, MissingSubjective: []string{"体温"}}, true},
 		{"interview_empty", TriageDecision{Decision: TriageInterview}, false},
 		{"test_ok", TriageDecision{Decision: TriageTest, SubjectiveExhausted: true, Reason: "区分感染", TestItems: []string{"血常规"}}, true},
 		{"test_not_exhausted", TriageDecision{Decision: TriageTest, Reason: "x", TestItems: []string{"血常规"}}, false},
+		{"test_no_reason", TriageDecision{Decision: TriageTest, SubjectiveExhausted: true, TestItems: []string{"血常规"}}, false},
 		{"test_no_items", TriageDecision{Decision: TriageTest, SubjectiveExhausted: true, Reason: "x"}, false},
 		{"bad_decision", TriageDecision{Decision: "FOO"}, false},
 	}
@@ -54,6 +56,7 @@ func TestTreatmentPlanValidate(t *testing.T) {
 		{"treat_no_cap", TreatmentPlan{Plan: PlanTreatment, Advice: "a"}, false},
 		{"referral_ok", TreatmentPlan{Plan: PlanReferral, Advice: "a", ReferralReason: "无能力"}, true},
 		{"referral_no_reason", TreatmentPlan{Plan: PlanReferral, Advice: "a"}, false},
+		{"bad_plan", TreatmentPlan{Plan: "UNKNOWN", Advice: "a"}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -74,6 +77,10 @@ func TestInterviewResultValidate(t *testing.T) {
 	}
 	if err := (InterviewResult{Advance: &AdvanceToTriage{Subjective: map[string]any{"a": 1}}}).Validate(); err != nil {
 		t.Fatalf("带 advance 应通过，得到 %v", err)
+	}
+	// Reply 与 Advance 可共存：Advance 时 Reply 是过场告知（与 Task 13 walkthrough 一致）。
+	if err := (InterviewResult{Reply: "信息够了，我来判断一下。", Advance: &AdvanceToTriage{Subjective: map[string]any{"a": 1}}}).Validate(); err != nil {
+		t.Fatalf("Reply+Advance 共存应通过，得到 %v", err)
 	}
 	if err := (InterviewResult{}).Validate(); err == nil {
 		t.Fatal("既无 reply 又无 advance 应失败")

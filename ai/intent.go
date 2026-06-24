@@ -19,7 +19,8 @@ type AdvanceToTriage struct {
 	Subjective map[string]any `json:"subjective"`
 }
 
-// InterviewResult 是问诊 agent 的产出：要么继续追问（Reply），要么 Advance。
+// InterviewResult 是问诊 agent 的产出：Reply 总是给患者的话；Advance 非空表示问诊充分，
+// 此时 Reply 为过场告知（二者可共存）。仅 Reply 为空且无 Advance 时非法。
 type InterviewResult struct {
 	Reply   string           `json:"reply"`
 	Advance *AdvanceToTriage `json:"advance,omitempty"`
@@ -96,7 +97,7 @@ func (t TriageDecision) Validate() error {
 			return fmt.Errorf("triage CONFIRM: diagnosis.name 为空")
 		}
 		if t.Diagnosis.Confidence < 0 || t.Diagnosis.Confidence > 1 {
-			return fmt.Errorf("triage CONFIRM: confidence 越界 %v", t.Diagnosis.Confidence)
+			return fmt.Errorf("triage CONFIRM: confidence 越界 %g", t.Diagnosis.Confidence)
 		}
 	case TriageInterview:
 		if len(t.MissingSubjective) == 0 {
