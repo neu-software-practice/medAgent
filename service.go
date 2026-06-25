@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -36,7 +37,7 @@ type session struct {
 	iTurns, tRounds, pRounds int
 	purchased             bool // 已走过购药回报，处置重决策不再二次购药
 	record                SessionRecord
-	lastActive            time.Time
+	lastActive            time.Time // 由 sess.mu 保护；reapOnce 用 TryLock 读，写方持 sess.mu
 	mu                    sync.Mutex
 }
 
@@ -85,9 +86,11 @@ func (s *Service) Start(profile map[string]any, initial bool, prior []SessionRec
 	id := newSessionID()
 	var prof json.RawMessage
 	if profile != nil {
-		if b, err := json.Marshal(profile); err == nil {
-			prof = b
+		b, err := json.Marshal(profile)
+		if err != nil {
+			return "", fmt.Errorf("medagent: marshal profile: %w", err)
 		}
+		prof = b
 	}
 	sess := &session{
 		id:    id,
@@ -146,12 +149,16 @@ func (s *Service) reaper() {
 
 func (s *Service) reapOnce(now time.Time) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	for id, sess := range s.sessions {
-		if now.Sub(sess.lastActive) > s.ttl {
-			delete(s.sessions, id)
+		if sess.mu.TryLock() { // 忙会话本轮跳过
+			expired := now.Sub(sess.lastActive) > s.ttl
+			sess.mu.Unlock()
+			if expired {
+				delete(s.sessions, id)
+			}
 		}
 	}
-	s.mu.Unlock()
 }
 
 // withVisit 在 ctx 上绑 sessionID 供日志归档（真实路径下 consultlog 用；FakeLLM 忽略）。
