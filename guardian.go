@@ -2,6 +2,7 @@ package medagent
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"medagent/internal/ai"
@@ -31,8 +32,8 @@ func (s *Service) guarded(ctx context.Context, sess *session, ev ai.Event, main 
 	mainCtx, cancelMain := context.WithCancel(ctx)
 	defer cancelMain()
 
-	// 在启动 goroutine 前拷贝 snap，消除守护读 snap 与 advance 写 sess.snap 的并发竞争。
-	snap := sess.snap
+	// 守护用 cloneSnapshot 的深拷贝快照，与 advance 写 sess.snap 无共享、无竞争。
+	snap := cloneSnapshot(sess.snap)
 
 	gch := make(chan guardResult, 1)
 	go func() {
@@ -80,6 +81,24 @@ func (s *Service) emergency(sess *session, reason string) Step {
 	t := nowSec()
 	sess.record.EndedAt = &t
 	return Step{Kind: StepEmergency, Emergency: reason}
+}
+
+// cloneSnapshot 深拷贝守护并发期间可能被 advance 写的字段，消除与 advance 的数据竞争。
+func cloneSnapshot(s ai.Snapshot) ai.Snapshot {
+	c := s // 复制值字段与 header；下面替换会被并发写的引用字段
+	c.Interview = append([]ai.DialogTurn(nil), s.Interview...)
+	c.TestResults = append([]ai.TestResult(nil), s.TestResults...)
+	c.Refusals = append([]ai.RefusalRecord(nil), s.Refusals...)
+	if s.Subjective != nil {
+		c.Subjective = make(map[string]any, len(s.Subjective))
+		for k, v := range s.Subjective {
+			c.Subjective[k] = v
+		}
+	}
+	if s.Profile != nil {
+		c.Profile = append(json.RawMessage(nil), s.Profile...)
+	}
+	return c
 }
 
 func (s *Service) ReportVitals(ctx context.Context, id string, vitals map[string]any) (Step, error) {
