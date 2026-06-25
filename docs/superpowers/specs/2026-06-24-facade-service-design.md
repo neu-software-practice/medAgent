@@ -15,6 +15,8 @@
 | 检验 | **只有血常规**：triage 选 TEST 时项目恒为「血常规」 |
 | 处置/购药 | MEDICATION 时输出购药请求 `[]{药名,数量}`（AI 定数量，可多药）→ 后端购买回报 `[]{药名,是否购买,数量}` → AI 据此出最终医嘱 → DONE |
 | 急症守护 | 含，默认开；每轮并发，命中即取消主决策返回 EMERGENCY（约 2× LLM/轮） |
+| 会话记录 | 高层 `SessionRecord`（带秒级时间戳的对话+关键事件+终态），可导出交后端存；底层 consultlog JSONL 作可选 debug |
+| 复诊 | `Start` 接 `initial bool` + `prior []SessionRecord`；初诊/复诊由后端判定，模块只接收并把历史渲染进上下文 |
 | 封装 | `ai`/`openaicompat`/`consultlog` → `medagent/internal/*`；唯一公开包是根 `medagent` |
 | 编排 | 退役 `harness.RunVisit`，编排收进 facade 可恢复状态机，全项目单一编排 |
 | 依赖 | 仍零外部依赖（HTTP 用 Go 1.22 标准库 `net/http` 增强路由） |
@@ -24,9 +26,10 @@
 ```
 medagent/                 # 唯一公开包（package medagent）
   service.go              #   Service / New / Close / 会话表 + TTL reaper
-  session.go              #   会话状态机：Start/PatientSay/SupplyTestResults/SupplyPurchaseResult/ReportVitals/End
+  session.go              #   会话状态机：Start/PatientSay/SupplyTestResults/SupplyPurchaseResult/ReportVitals/Export/End
   guardian.go             #   每轮并发守护封装
-  types.go                #   公开 DTO：Config / Step / StepKind / Result / Diagnosis / Medication / DrugOrder / DrugPurchase / TestResult
+  record.go               #   SessionRecord / RecordedTurn 累积与导出、prior 历史渲染
+  types.go                #   公开 DTO：Config / Step / StepKind / Result / Diagnosis / Medication / DrugOrder / DrugPurchase / TestResult / SessionRecord / RecordedTurn
   errors.go               #   公开错误
   httpapi.go              #   (s *Service) Handler() http.Handler —— JSON 端点
   *_test.go               #   FakeLLM 驱动的状态机/守护/TTL/HTTP 离线单测；门控真实-LLM 集成
@@ -63,11 +66,14 @@ func New(cfg Config) (*Service, error)
 func (s *Service) Close() error
 func (s *Service) Handler() http.Handler // HTTP 端点（见下）
 
-func (s *Service) Start(profile map[string]any) (sessionID string, err error) // profile 可为 nil
+// Start 开一次就诊。profile/prior 可为 nil；initial 由后端判定（true=初诊）。
+// 复诊时 prior 传后端先前 Export 的所有会话纪要，模块渲染进模型上下文。
+func (s *Service) Start(profile map[string]any, initial bool, prior []SessionRecord) (sessionID string, err error)
 func (s *Service) PatientSay(ctx context.Context, sessionID, message string) (Step, error)
 func (s *Service) SupplyTestResults(ctx context.Context, sessionID string, results []TestResult) (Step, error)
 func (s *Service) SupplyPurchaseResult(ctx context.Context, sessionID string, results []DrugPurchase) (Step, error)
 func (s *Service) ReportVitals(ctx context.Context, sessionID string, vitals map[string]any) (Step, error)
+func (s *Service) Export(sessionID string) (SessionRecord, error) // 导出会话纪要（交后端存；复诊回传）
 func (s *Service) End(sessionID string)
 ```
 
@@ -104,6 +110,22 @@ type Medication   struct { Name, Dosage, Schedule string; Quantity int }
 type DrugOrder    struct { Name string; Quantity int }          // AI → 后端：要买什么、几份
 type DrugPurchase struct { Name string; Bought bool; Quantity int } // 后端 → AI：买没买、几份
 type TestResult   struct { Item, Value string }
+
+// SessionRecord 是一次就诊的可导出纪要：交后端持久化，复诊时回传。
+type SessionRecord struct {
+    SessionID string          // 本次会话 ID
+    Initial   bool            // 是否初诊（后端判定）
+    StartedAt time.Time       // 秒级
+    EndedAt   *time.Time      // 秒级；未结束为 nil
+    Profile   json.RawMessage // 患者资料原样
+    Turns     []RecordedTurn  // 按时间的对话与关键事件
+    Outcome   *Result         // 终态（完成时）
+}
+type RecordedTurn struct {
+    At   time.Time // 秒级时间戳
+    Kind string    // "patient"|"doctor"|"test_request"|"test_result"|"diagnosis"|"purchase_request"|"purchase_result"|"emergency"|"advice"
+    Text string    // 可读内容（对话文本 / 检验项与结果 / 诊断或处方摘要等）
+}
 ```
 
 公开 DTO 与内部 `ai` 类型同形但独立声明，边界处转换；内部类型不外泄。
@@ -125,11 +147,12 @@ ctx 取消/超时以原始 ctx 错误返回。
 
 | 方法+路径 | 请求体 | 成功响应 |
 | --- | --- | --- |
-| `POST /sessions` | `{"profile": {…}}`（profile 可省） | `200 {"session_id": "..."}` |
+| `POST /sessions` | `{"profile":{…}, "initial":true, "prior":[<SessionRecord>…]}`（profile/prior 可省） | `200 {"session_id":"..."}` |
 | `POST /sessions/{id}/patient-say` | `{"message": "..."}` | `200 <Step>` |
 | `POST /sessions/{id}/test-results` | `{"results":[{"item","value"}]}` | `200 <Step>` |
 | `POST /sessions/{id}/purchase-result` | `{"results":[{"name","bought","quantity"}]}` | `200 <Step>` |
 | `POST /sessions/{id}/vitals` | `{"vitals": {…}}` | `200 <Step>` |
+| `GET /sessions/{id}/record` | — | `200 <SessionRecord>` |
 | `DELETE /sessions/{id}` | — | `204` |
 
 `<Step>` JSON：`{"kind","doctor_say?","test_items?","orders?","emergency?","result?"}`（按 kind 出现对应字段）。
@@ -148,16 +171,19 @@ type session struct {
     snap   ai.Snapshot
     phase  phase // interview | triage | awaitTests | treatment | awaitPurchase | done | closed
     iTurns, tRounds, pRounds int // 熔断计数
+    record SessionRecord       // 边跑边累积；每步追加带秒级时间戳的 RecordedTurn
     lastActive time.Time
     mu sync.Mutex
 }
 ```
 
+每次推进都向 `record.Turns` 追加带秒级时间戳（`time.Now().Truncate(time.Second)`）的条目：患者话、医生话、检验请求/结果、诊断、购药请求/结果、急症、最终医嘱。完成时写 `record.Outcome` 与 `record.EndedAt`。`Export` 返回 `record` 的拷贝（会话仍在内存时即可导出；建议后端在 `DONE`/`EMERGENCY` 后导出再 `End`）。
+
 护栏：`maxInterviewTurns=20`、`maxTriageRounds=10`、`maxTreatmentRounds=5`，超限→`ErrUpstream`（"未收敛"）。
 
 ### 推进逻辑
 
-`Start(profile)`：建会话；`snap.Profile = json(profile)`（nil 则空）。
+`Start(profile, initial, prior)`：建会话；`snap.Profile = json(profile)`（nil 则空）；记 `record.Initial=initial`、`record.StartedAt=now(秒)`、`record.Profile`。若 `prior` 非空（复诊），把所有先前 `SessionRecord` 渲染成历史文本写入 `snap.History`（内部 `ai` 新增字段，见下），模型即可看到过往就诊。
 
 `PatientSay(message)`：取会话（无→`ErrSessionNotFound`；done/closed→`ErrSessionClosed`）。追加患者轮 → 并发守护（事件 dialog）→ `advance()`：
 - interview：`layer.Interview`。未 advance → 追加医生轮、`Step{ASK}`；advance → 合并 Subjective、phase=triage，进收敛环。
@@ -184,7 +210,7 @@ type session struct {
 
 ## 内部 `ai` 改动（随迁移一并做）
 
-1. `Snapshot` 增 `Profile json.RawMessage`；`renderSnapshotBlock` 增【患者资料】块（profile 非空时输出其 JSON）。
+1. `Snapshot` 增 `Profile json.RawMessage`（患者资料）与 `History string`（复诊历史，由 facade 预渲染）；`renderSnapshotBlock` 增【患者资料】块（profile 非空时输出其 JSON）与【历史就诊记录】块（History 非空时输出）。
 2. `Medication` 增 `Quantity int`；`schemaTreatment` 的 medications item 增 `quantity`(integer)；`promptTreatment` 说明 MEDICATION 须给每药 `quantity`（购买份数）。
 3. `promptTriage` 限定：选 TEST 时 `test_items` 恒为 `["血常规"]`。
 
@@ -203,9 +229,10 @@ type session struct {
 ## 测试
 
 - **离线单测（FakeLLM）**：ASK / advance→CONFIRM→（ADVICE_ONLY）DONE / triage INTERVIEW 回退→ASK / TEST→NEED_TESTS→SupplyTestResults→CONFIRM / treatment MEDICATION→PURCHASE→SupplyPurchaseResult→DONE（含未购买→Refusal→最终医嘱）/ 能力缺失→内部重决策→REFERRAL；守护命中→EMERGENCY 且取消主决策、fail-open、DisableGuardian；会话错误（NotFound/Closed/WrongStep）；错误映射（ErrUpstream/ErrModelOutput/ctx 透传）；护栏未收敛；TTL 回收；`-race` 多会话并发。
-- **HTTP 单测**：用 `httptest` 打各端点，断言 JSON 形状与状态码映射。
+- **会话纪要/复诊单测**：`Export` 返回的 `SessionRecord` 含按时间的 turns、各条 `At` 为秒级、终态写入 `Outcome`/`EndedAt`；`Start` 传 `initial=false`+`prior` 时历史被渲染进 `snap.History`（断言模型上下文含历史块）。
+- **HTTP 单测**：用 `httptest` 打各端点（含 `GET /sessions/{id}/record`、`POST /sessions` 带 `initial`/`prior`），断言 JSON 形状与状态码映射。
 - **门控真实-LLM 集成**（`MEDAGENT_REAL_LLM`）：模拟患者驱动 facade 跑通整流程到 DONE，断言日志文件生成。
 
 ## 显式排除（YAGNI）
 
-- 会话持久化/可序列化状态/水平扩展；鉴权/限流/TLS（后端在前置网关处理）；支付/卡片/saga；复诊入口（PriorVisit 后续可加进 Start）；多 sink 日志后端；guardian 纯后台 ticker（仅在有新事件轮内并发）。
+- 会话持久化（模块只内存 + 导出交后端存）/可序列化状态/水平扩展；初诊/复诊的判定逻辑（后端负责，模块只接收 `initial` 标志）；鉴权/限流/TLS（后端前置网关处理）；支付/卡片/saga；多 sink 日志后端；guardian 纯后台 ticker（仅在有新事件轮内并发）。
