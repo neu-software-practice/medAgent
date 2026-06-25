@@ -44,6 +44,9 @@ func TestWalkthroughPharyngitis(t *testing.T) {
 	if st.Kind != StepDone || st.Result.Diagnosis.Name != "急性咽炎" {
 		t.Fatalf("应 DONE 急性咽炎：%+v", st)
 	}
+	if st.Result.Plan != string(ai.PlanAdviceOnly) {
+		t.Fatalf("应 PlanAdviceOnly，得 %s", st.Result.Plan)
+	}
 }
 
 // 能力缺失→转诊。

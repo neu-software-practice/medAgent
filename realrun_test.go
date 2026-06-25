@@ -17,6 +17,9 @@ func TestRealConsultFlow(t *testing.T) {
 	}
 	provider := getenv("MEDAGENT_LLM_PROVIDER", "openai")
 	keyEnv := map[string]string{"openai": "OPENAI_API_KEY", "deepseek": "DEEPSEEK_API_KEY", "qwen": "DASHSCOPE_API_KEY"}[provider]
+	if keyEnv == "" {
+		t.Fatalf("未知 MEDAGENT_LLM_PROVIDER %q（openai|deepseek|qwen）", provider)
+	}
 	key := os.Getenv(keyEnv)
 	if key == "" {
 		t.Fatalf("缺 %s", keyEnv)
@@ -36,57 +39,42 @@ func TestRealConsultFlow(t *testing.T) {
 
 	id, _ := svc.Start(map[string]any{"年龄": 30, "性别": "男"}, true, nil)
 	msg := simReal(ctx, t, patient, "")
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 40; i++ {
 		st, err := svc.PatientSay(ctx, id, msg)
 		if err != nil {
 			t.Fatalf("PatientSay: %v", err)
 		}
+	consume:
 		switch st.Kind {
 		case StepAsk:
 			msg = simReal(ctx, t, patient, st.DoctorSay)
 		case StepNeedTests:
-			st, _ = svc.SupplyTestResults(ctx, id, []TestResult{{Item: "血常规", Value: "WBC 13.5↑、中性粒↑"}})
-			if !consumeTerminal(t, svc, id, patient, ctx, st, &msg) {
-				continue
+			st, err = svc.SupplyTestResults(ctx, id, []TestResult{{Item: "血常规", Value: "WBC 13.5↑、中性粒↑"}})
+			if err != nil {
+				t.Fatalf("SupplyTestResults: %v", err)
 			}
-			return
+			goto consume
 		case StepPurchase:
 			var res []DrugPurchase
 			for _, o := range st.Orders {
 				res = append(res, DrugPurchase{Name: o.Name, Bought: true, Quantity: o.Quantity})
 			}
-			st, _ = svc.SupplyPurchaseResult(ctx, id, res)
-			assertDone(t, st)
-			return
+			st, err = svc.SupplyPurchaseResult(ctx, id, res)
+			if err != nil {
+				t.Fatalf("SupplyPurchaseResult: %v", err)
+			}
+			goto consume
 		case StepEmergency:
-			t.Logf("急症：%s", st.Emergency)
+			t.Logf("急症转急诊：%s", st.Emergency)
 			return
 		case StepDone:
 			assertDone(t, st)
 			return
+		default:
+			t.Fatalf("未预期 Step.Kind=%s", st.Kind)
 		}
 	}
-	t.Fatal("未在 30 轮内收敛")
-}
-
-func consumeTerminal(t *testing.T, svc *Service, id string, patient ai.LLMClient, ctx context.Context, st Step, msg *string) bool {
-	switch st.Kind {
-	case StepPurchase:
-		var res []DrugPurchase
-		for _, o := range st.Orders {
-			res = append(res, DrugPurchase{Name: o.Name, Bought: true, Quantity: o.Quantity})
-		}
-		st2, _ := svc.SupplyPurchaseResult(ctx, id, res)
-		assertDone(t, st2)
-		return true
-	case StepDone:
-		assertDone(t, st)
-		return true
-	case StepAsk:
-		*msg = simReal(ctx, t, patient, st.DoctorSay)
-		return false
-	}
-	return true
+	t.Fatal("未在 40 轮内收敛")
 }
 
 func assertDone(t *testing.T, st Step) {
@@ -134,6 +122,8 @@ func simReal(ctx context.Context, t *testing.T, c ai.LLMClient, doctor string) s
 	var pr struct {
 		Reply string `json:"reply"`
 	}
-	_ = json.Unmarshal(res.Structured, &pr)
+	if err := json.Unmarshal(res.Structured, &pr); err != nil {
+		t.Fatalf("解析患者回复失败: %v（raw=%s）", err, res.Raw)
+	}
 	return pr.Reply
 }
