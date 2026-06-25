@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"medagent"
 )
@@ -43,5 +44,13 @@ func main() {
 	}
 	defer svc.Close()
 	log.Printf("medagent 服务监听 %s（provider=%s model=%s）", *addr, *provider, *model)
-	log.Fatal(http.ListenAndServe(*addr, svc.Handler()))
+	srv := &http.Server{
+		Addr:              *addr,
+		Handler:           svc.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      5 * time.Minute, // 一轮可能含多次 LLM 调用
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

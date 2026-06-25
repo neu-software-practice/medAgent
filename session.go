@@ -23,11 +23,18 @@ func (s *Service) PatientSay(ctx context.Context, id, message string) (Step, err
 	if sess.phase != phInterview {
 		return Step{}, ErrWrongStep
 	}
+	nInterview, nTurns := len(sess.snap.Interview), len(sess.record.Turns)
 	sess.snap.Interview = append(sess.snap.Interview, ai.DialogTurn{Role: "patient", Text: message})
 	sess.addTurn("patient", message)
-	return s.guarded(ctx, sess, ai.Event{Kind: "dialog", Data: message}, func(c context.Context) (Step, error) {
+	st, err := s.guarded(ctx, sess, ai.Event{Kind: "dialog", Data: message}, func(c context.Context) (Step, error) {
 		return s.advance(c, sess)
 	})
+	if err != nil && sess.phase != phDone && sess.phase != phClosed {
+		sess.snap.Interview = sess.snap.Interview[:nInterview]
+		sess.record.Turns = sess.record.Turns[:nTurns]
+		sess.phase = phInterview
+	}
+	return st, err
 }
 
 func (s *Service) SupplyTestResults(ctx context.Context, id string, results []TestResult) (Step, error) {
@@ -44,14 +51,21 @@ func (s *Service) SupplyTestResults(ctx context.Context, id string, results []Te
 	if sess.phase != phAwaitTests {
 		return Step{}, ErrWrongStep
 	}
+	nTests, nTurns := len(sess.snap.TestResults), len(sess.record.Turns)
 	sess.snap.TestResults = append(sess.snap.TestResults, testResultsToAI(results)...)
 	for _, r := range results {
 		sess.addTurn("test_result", r.Item+": "+r.Value)
 	}
 	sess.phase = phTriage
-	return s.guarded(ctx, sess, ai.Event{Kind: "test_result", Data: results}, func(c context.Context) (Step, error) {
+	st, err := s.guarded(ctx, sess, ai.Event{Kind: "test_result", Data: results}, func(c context.Context) (Step, error) {
 		return s.advance(c, sess)
 	})
+	if err != nil && sess.phase != phDone && sess.phase != phClosed {
+		sess.snap.TestResults = sess.snap.TestResults[:nTests]
+		sess.record.Turns = sess.record.Turns[:nTurns]
+		sess.phase = phAwaitTests
+	}
+	return st, err
 }
 
 func (s *Service) SupplyPurchaseResult(ctx context.Context, id string, results []DrugPurchase) (Step, error) {
@@ -68,6 +82,7 @@ func (s *Service) SupplyPurchaseResult(ctx context.Context, id string, results [
 	if sess.phase != phAwaitPurchase {
 		return Step{}, ErrWrongStep
 	}
+	nRefusals, nTurns := len(sess.snap.Refusals), len(sess.record.Turns)
 	bought := map[string]int{}
 	for _, r := range results {
 		if r.Bought {
@@ -87,6 +102,13 @@ func (s *Service) SupplyPurchaseResult(ctx context.Context, id string, results [
 		return s.advance(c, sess)
 	})
 	sess.snap.Feedback = nil
+	if err != nil && sess.phase != phDone && sess.phase != phClosed {
+		sess.snap.Refusals = sess.snap.Refusals[:nRefusals]
+		sess.record.Turns = sess.record.Turns[:nTurns]
+		delete(sess.snap.Subjective, "购药结果")
+		sess.purchased = false
+		sess.phase = phAwaitPurchase
+	}
 	return st, err
 }
 
@@ -98,6 +120,7 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 		case phInterview:
 			sess.iTurns++
 			if sess.iTurns > maxInterviewTurns {
+				sess.phase = phClosed
 				return Step{}, fmt.Errorf("%w: 问诊未收敛", ErrUpstream)
 			}
 			res, err := s.layer.Interview(cctx, sess.snap)
@@ -118,6 +141,7 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 		case phTriage:
 			sess.tRounds++
 			if sess.tRounds > maxTriageRounds {
+				sess.phase = phClosed
 				return Step{}, fmt.Errorf("%w: 收敛环未收敛", ErrUpstream)
 			}
 			td, err := s.layer.Triage(cctx, sess.snap)
@@ -132,7 +156,7 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 			case ai.TriageInterview:
 				sess.snap.Feedback = &ai.OrchestratorFeedback{MissingHint: td.MissingSubjective}
 				sess.phase = phInterview
-				// 立即再问一次拿追问句
+				// 此处 Interview 调用不计 iTurns，受 maxTriageRounds(10) 上界约束
 				res, err := s.layer.Interview(cctx, sess.snap)
 				if err != nil {
 					return Step{}, ctxOrMap(cctx, err)
@@ -159,6 +183,7 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 		case phTreatment:
 			sess.pRounds++
 			if sess.pRounds > maxTreatmentRounds {
+				sess.phase = phClosed
 				return Step{}, fmt.Errorf("%w: 处置环未收敛", ErrUpstream)
 			}
 			tp, err := s.layer.Treatment(cctx, sess.snap)

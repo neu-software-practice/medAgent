@@ -148,4 +148,60 @@ func TestErrorMapping(t *testing.T) {
 	}
 }
 
+// TestTransientErrorRecovery 验证瞬时错误后会话不卡死：
+// advance 在 triage 第一次失败时，PatientSay 回滚 Interview/Turns/phase，
+// 使客户端可用同一接口重试直到成功。
+func TestTransientErrorRecovery(t *testing.T) {
+	fake := scriptLLM(func(name string, n int) (any, error) {
+		switch name {
+		case "interview":
+			// 每次都直接 advance（收集够主诉）
+			return ai.InterviewResult{Reply: "好的", Advance: &ai.AdvanceToTriage{Subjective: map[string]any{"主诉": "头疼"}}}, nil
+		case "triage_decide":
+			if n == 1 {
+				return nil, ai.ErrLLM // 第一次瞬时错误
+			}
+			return ai.TriageDecision{
+				Decision:  ai.TriageConfirm,
+				Diagnosis: &ai.Diagnosis{Name: "偏头痛", Basis: "症状", Confidence: 0.85},
+			}, nil
+		case "treatment_plan":
+			return ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "多休息"}, nil
+		}
+		return nil, nil
+	})
+	s := svcWith(t, fake, nil)
+	defer s.Close()
+	id, _ := s.Start(nil, true, nil)
+
+	// 第一次 PatientSay：interview 成功，但 triage 瞬时失败 → ErrUpstream
+	_, err := s.PatientSay(context.Background(), id, "头疼")
+	if !errors.Is(err, ErrUpstream) {
+		t.Fatalf("第一次应 ErrUpstream，got %v", err)
+	}
+
+	// 会话未卡死：事务已回滚
+	sess, _ := s.get(id)
+	sess.mu.Lock()
+	ph := sess.phase
+	nInterview := len(sess.snap.Interview)
+	nTurns := len(sess.record.Turns)
+	sess.mu.Unlock()
+	if ph != phInterview {
+		t.Fatalf("回滚后 phase 应为 phInterview，got %v", ph)
+	}
+	if nInterview != 0 || nTurns != 0 {
+		t.Fatalf("回滚后 snap.Interview/record.Turns 应被截断，got Interview=%d Turns=%d", nInterview, nTurns)
+	}
+
+	// 第二次 PatientSay：triage 成功 → 最终 DONE
+	st, err := s.PatientSay(context.Background(), id, "头疼")
+	if err != nil {
+		t.Fatalf("第二次 PatientSay 应成功，got %v", err)
+	}
+	if st.Kind != StepDone {
+		t.Fatalf("第二次应 DONE，got %+v", st)
+	}
+}
+
 var _ = json.Marshal

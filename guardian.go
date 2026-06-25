@@ -16,6 +16,7 @@ type guardResult struct {
 
 // guarded 并发跑守护与 main；守护命中即取消 main 返回 EMERGENCY，否则返回 main 结果。
 // 守护错误 fail-open（忽略，等 main）。已持有 sess.mu。
+// 守护可能等到其 LLM 调用返回，调用方须通过 ctx 传 deadline 以防慢守护拖住会话。
 //
 // 并发保证：
 //   - gch/mch 均 buffered(1)，两个子 goroutine 发完即退，不泄漏。
@@ -102,6 +103,7 @@ func cloneSnapshot(s ai.Snapshot) ai.Snapshot {
 	return c
 }
 
+// ReportVitals 上报体征并触发守护评估。守护可能等到其 LLM 调用返回，调用方须通过 ctx 传 deadline 以防慢守护拖住会话。
 func (s *Service) ReportVitals(ctx context.Context, id string, vitals map[string]any) (Step, error) {
 	sess, err := s.get(id)
 	if err != nil {
