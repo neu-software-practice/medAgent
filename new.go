@@ -2,6 +2,7 @@ package medagent
 
 import (
 	"fmt"
+	"os"
 
 	"medagent/internal/ai"
 	"medagent/internal/consultlog"
@@ -26,6 +27,9 @@ func New(cfg Config) (*Service, error) {
 		return nil, fmt.Errorf("medagent: 未知 provider %q（deepseek|qwen|openai 或设 BaseURL）", cfg.Provider)
 	}
 	if cfg.LogDir != "" {
+		if err := os.MkdirAll(cfg.LogDir, 0o755); err != nil {
+			return nil, fmt.Errorf("medagent: 创建日志目录 %s 失败: %w", cfg.LogDir, err)
+		}
 		llm = consultlog.Wrap(llm, consultlog.NewFileLogger(cfg.LogDir))
 	}
 	return newService(cfg, ai.NewDecisionLayer(llm), ai.NewGuardian(llm)), nil

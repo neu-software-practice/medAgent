@@ -21,6 +21,9 @@ func main() {
 	flag.Parse()
 
 	keyEnv := map[string]string{"deepseek": "DEEPSEEK_API_KEY", "qwen": "DASHSCOPE_API_KEY", "openai": "OPENAI_API_KEY"}[*provider]
+	if keyEnv == "" {
+		log.Fatalf("未知 provider %q，支持 deepseek|qwen|openai", *provider)
+	}
 	key := os.Getenv(keyEnv)
 	if key == "" {
 		log.Fatalf("缺少环境变量 %s", keyEnv)
