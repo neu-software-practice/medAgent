@@ -17,8 +17,8 @@ import (
 	"os"
 	"time"
 
-	"medagent/ai"
-	"medagent/ai/openaicompat"
+	"medagent/internal/ai"
+	"medagent/internal/openaicompat"
 )
 
 // providerSpec 描述一个 provider 的接线参数。

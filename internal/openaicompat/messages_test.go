@@ -3,7 +3,7 @@ package openaicompat
 import (
 	"testing"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 func TestMergeMessages_ConsecutiveSameRoleMerged(t *testing.T) {

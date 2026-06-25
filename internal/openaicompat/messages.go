@@ -1,6 +1,6 @@
 package openaicompat
 
-import "medagent/ai"
+import "medagent/internal/ai"
 
 // mergeMessages 把 ai.Message 映射成 wire 消息，并合并连续同角色消息
 // （content 以 "\n\n" 拼接）。Anthropic 风格 API 不接受连续同角色消息，

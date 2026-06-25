@@ -35,6 +35,13 @@ func renderSnapshotBlock(s Snapshot, early []DialogTurn) string {
 	var b strings.Builder
 	b.WriteString("【就诊快照】\n")
 
+	if len(s.Profile) > 0 {
+		fmt.Fprintf(&b, "【患者资料】%s\n", s.Profile)
+	}
+	if s.History != "" {
+		fmt.Fprintf(&b, "【历史就诊记录】\n%s\n", s.History)
+	}
+
 	if len(s.Subjective) > 0 {
 		b.WriteString("主观信息:\n")
 		keys := make([]string, 0, len(s.Subjective))

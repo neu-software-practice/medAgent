@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 func TestParseResult_ExtractsToolArguments(t *testing.T) {

@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type Medication struct {
 	Name     string `json:"name"`
 	Dosage   string `json:"dosage"`
 	Schedule string `json:"schedule"`
+	Quantity int    `json:"quantity,omitempty"`
 }
 
 // TestResult 是一条已回填的检验结果。
@@ -66,6 +68,9 @@ type Snapshot struct {
 	Diagnosis   *Diagnosis
 	PriorVisit  *VisitSummary
 	Refusals    []RefusalRecord
+
+	Profile json.RawMessage // 患者资料原样 JSON（facade 注入），可空
+	History string          // 复诊历史，facade 预渲染，可空
 
 	Feedback *OrchestratorFeedback
 }

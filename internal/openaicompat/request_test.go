@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 func TestBuildRequest_SystemFirstAndForcedToolChoice(t *testing.T) {

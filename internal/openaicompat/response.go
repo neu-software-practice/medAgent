@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 // parseResult 从 OpenAI 兼容响应里取出首个 tool_call 的 arguments 作为结构化输出。
