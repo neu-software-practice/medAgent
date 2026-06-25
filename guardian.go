@@ -38,7 +38,7 @@ func (s *Service) guarded(ctx context.Context, sess *session, ev ai.Event, main 
 	gch := make(chan guardResult, 1)
 	go func() {
 		// 守护用外层 ctx：主决策先完成时不被取消，能返回真实判断。
-		ei, hit, err := s.guardian.Assess(ctx, snap, ev)
+		ei, hit, err := s.guardian.Assess(withVisit(ctx, sess.id), snap, ev)
 		gch <- guardResult{ei, hit, err}
 	}()
 
@@ -78,6 +78,7 @@ func (s *Service) guarded(ctx context.Context, sess *session, ev ai.Event, main 
 func (s *Service) emergency(sess *session, reason string) Step {
 	sess.addTurn("emergency", reason)
 	sess.phase = phClosed
+	sess.record.Outcome = nil // 急症终止：清掉可能已被 finish 写入的完成态，避免记录不一致
 	t := nowSec()
 	sess.record.EndedAt = &t
 	return Step{Kind: StepEmergency, Emergency: reason}
