@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 
 	"medagent/internal/ai"
@@ -12,9 +13,13 @@ import (
 // scriptLLM 按 schema name + 计数返回脚本输出。
 func scriptLLM(fn func(name string, n int) (any, error)) *ai.FakeLLM {
 	counts := map[string]int{}
+	var mu sync.Mutex
 	return &ai.FakeLLM{On: func(req ai.CompletionRequest) (ai.CompletionResult, error) {
+		mu.Lock()
 		counts[req.Schema.Name]++
-		v, err := fn(req.Schema.Name, counts[req.Schema.Name])
+		n := counts[req.Schema.Name]
+		mu.Unlock()
+		v, err := fn(req.Schema.Name, n)
 		if err != nil {
 			return ai.CompletionResult{}, err
 		}
