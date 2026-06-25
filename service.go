@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"medagent/internal/ai"
+	"medagent/internal/consultlog"
 )
 
 type phase int
@@ -161,7 +162,7 @@ func (s *Service) reapOnce(now time.Time) {
 	}
 }
 
-// withVisit 在 ctx 上绑 sessionID 供日志归档（真实路径下 consultlog 用；FakeLLM 忽略）。
+// withVisit 在 ctx 上绑 sessionID 供日志归档（consultlog 用；FakeLLM 忽略）。
 func withVisit(ctx context.Context, id string) context.Context {
-	return ctx // Task 8 接真实日志时改为 consultlog.WithVisitID
+	return consultlog.WithVisitID(ctx, id)
 }
