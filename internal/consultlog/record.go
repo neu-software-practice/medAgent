@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 // Message 是记录里的一条对话消息。独立于 ai.Message 以固定 snake_case 的持久化键名。

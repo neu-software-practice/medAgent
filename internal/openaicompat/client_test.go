@@ -11,7 +11,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 func TestComplete_SendsForcedToolUseRequest(t *testing.T) {

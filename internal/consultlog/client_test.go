@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 var _ ai.LLMClient = (*Client)(nil)

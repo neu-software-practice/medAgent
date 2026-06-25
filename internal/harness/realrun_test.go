@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"medagent/ai"
-	"medagent/ai/consultlog"
-	"medagent/ai/openaicompat"
+	"medagent/internal/ai"
+	"medagent/internal/consultlog"
+	"medagent/internal/openaicompat"
 )
 
 // providerKeyEnv 把 provider 映射到其标准 key 环境变量与默认模型（与 cmd/smoke 一致）。

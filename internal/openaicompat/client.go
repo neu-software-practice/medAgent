@@ -11,7 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 // Client 是 logging 装饰器：包住任意 ai.LLMClient，把每次 Complete 记进 sink。

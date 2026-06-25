@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 // scriptedLLM 按 schema name + 调用计数复刻急性咽炎场景。

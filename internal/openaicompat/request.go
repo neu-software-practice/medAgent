@@ -1,6 +1,6 @@
 package openaicompat
 
-import "medagent/ai"
+import "medagent/internal/ai"
 
 // toolDescription 是注入给强制工具的固定说明，引导模型把结构化结果作为入参返回。
 const toolDescription = "Return the structured result as arguments to this function."

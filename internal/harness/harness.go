@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 // Deps 是一次就诊所需的外部依赖（测试注入）。

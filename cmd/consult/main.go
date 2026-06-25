@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"medagent/ai"
-	"medagent/ai/consultlog"
-	"medagent/ai/harness"
-	"medagent/ai/openaicompat"
+	"medagent/internal/ai"
+	"medagent/internal/consultlog"
+	"medagent/internal/harness"
+	"medagent/internal/openaicompat"
 )
 
 var providerKeyEnv = map[string]struct{ keyVar, defModel string }{

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"medagent/ai"
+	"medagent/internal/ai"
 )
 
 // 简单患者：按序返回预设答案，用尽后重复最后一句。
