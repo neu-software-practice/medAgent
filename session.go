@@ -25,7 +25,9 @@ func (s *Service) PatientSay(ctx context.Context, id, message string) (Step, err
 	}
 	sess.snap.Interview = append(sess.snap.Interview, ai.DialogTurn{Role: "patient", Text: message})
 	sess.addTurn("patient", message)
-	return s.advance(ctx, sess)
+	return s.guarded(ctx, sess, ai.Event{Kind: "dialog", Data: message}, func(c context.Context) (Step, error) {
+		return s.advance(c, sess)
+	})
 }
 
 func (s *Service) SupplyTestResults(ctx context.Context, id string, results []TestResult) (Step, error) {
@@ -47,7 +49,9 @@ func (s *Service) SupplyTestResults(ctx context.Context, id string, results []Te
 		sess.addTurn("test_result", r.Item+": "+r.Value)
 	}
 	sess.phase = phTriage
-	return s.advance(ctx, sess)
+	return s.guarded(ctx, sess, ai.Event{Kind: "test_result", Data: results}, func(c context.Context) (Step, error) {
+		return s.advance(c, sess)
+	})
 }
 
 func (s *Service) SupplyPurchaseResult(ctx context.Context, id string, results []DrugPurchase) (Step, error) {
@@ -79,7 +83,9 @@ func (s *Service) SupplyPurchaseResult(ctx context.Context, id string, results [
 	sess.purchased = true
 	sess.snap.Feedback = &ai.OrchestratorFeedback{NextExpected: "据购药结果给最终医嘱，勿重复开药"}
 	sess.phase = phTreatment
-	st, err := s.advance(ctx, sess)
+	st, err := s.guarded(ctx, sess, ai.Event{Kind: "purchase_result", Data: results}, func(c context.Context) (Step, error) {
+		return s.advance(c, sess)
+	})
 	sess.snap.Feedback = nil
 	return st, err
 }
