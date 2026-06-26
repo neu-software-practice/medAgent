@@ -29,7 +29,6 @@ cmd/
 docs/
   后端接入指南.md           # 后端接入文档（端点/字段/时序/错误/边界）—— 接入必读
   files/…实现规格.md        # 最初完整设计（方案 A）+ 实现现状批注
-  superpowers/             # 各特性的 spec 与实现计划存档
 ```
 
 依赖方向：`agent → internal/{ai,openaicompat,consultlog}`，`internal` 外部不可见。
