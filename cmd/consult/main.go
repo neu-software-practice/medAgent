@@ -74,6 +74,14 @@ func handle(ctx context.Context, svc *medagent.Service, id string, patient ai.LL
 		fmt.Printf("🧪 检验：%v → 回填\n", st.TestItems)
 		next, _ := svc.SupplyTestResults(ctx, id, []medagent.TestResult{{Item: "血常规", Value: "WBC 13.5↑、中性粒↑，提示细菌"}})
 		return handle(ctx, svc, id, patient, next, msg)
+	case medagent.StepDrugQuery:
+		fmt.Printf("💊 查询药品规格：%v → 回填\n", st.DrugNames)
+		var infos []medagent.DrugInfo
+		for _, name := range st.DrugNames {
+			infos = append(infos, medagent.DrugInfo{Name: name, Spec: "每盒12片×0.3g"})
+		}
+		next, _ := svc.SupplyDrugInfo(ctx, id, infos)
+		return handle(ctx, svc, id, patient, next, msg)
 	case medagent.StepPurchase:
 		fmt.Printf("💊 购药请求：%v → 全部购买\n", st.Orders)
 		var res []medagent.DrugPurchase

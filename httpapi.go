@@ -13,6 +13,7 @@ func (s *Service) Handler() http.Handler {
 	mux.HandleFunc("POST /sessions/{id}/patient-say", s.hPatientSay)
 	mux.HandleFunc("POST /sessions/{id}/test-results", s.hTestResults)
 	mux.HandleFunc("POST /sessions/{id}/purchase-result", s.hPurchaseResult)
+	mux.HandleFunc("POST /sessions/{id}/drug-info", s.hDrugInfo)
 	mux.HandleFunc("POST /sessions/{id}/vitals", s.hVitals)
 	mux.HandleFunc("GET /sessions/{id}/record", s.hRecord)
 	mux.HandleFunc("DELETE /sessions/{id}", s.hEnd)
@@ -66,6 +67,17 @@ func (s *Service) hPurchaseResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	step, err := s.SupplyPurchaseResult(r.Context(), r.PathValue("id"), body.Results)
+	respondStep(w, step, err)
+}
+
+func (s *Service) hDrugInfo(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Infos []DrugInfo `json:"infos"`
+	}
+	if !decode(w, r, &body) {
+		return
+	}
+	step, err := s.SupplyDrugInfo(r.Context(), r.PathValue("id"), body.Infos)
 	respondStep(w, step, err)
 }
 

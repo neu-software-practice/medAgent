@@ -49,6 +49,45 @@ func TestWalkthroughPharyngitis(t *testing.T) {
 	}
 }
 
+// 购药主干含 DRUG_QUERY 轮：问诊→DRUG_QUERY→SupplyDrugInfo→PURCHASE→SupplyPurchaseResult→DONE。
+func TestWalkthroughMedicationViaDrugQuery(t *testing.T) {
+	fake := scriptLLM(func(name string, n int) (any, error) {
+		switch name {
+		case "interview":
+			return ai.InterviewResult{Reply: "够了", Advance: &ai.AdvanceToTriage{Subjective: map[string]any{"a": "b"}}}, nil
+		case "triage_decide":
+			return ai.TriageDecision{Decision: ai.TriageConfirm, Diagnosis: &ai.Diagnosis{Name: "细菌性咽炎", Basis: "x", Confidence: 0.9}}, nil
+		case "treatment_plan":
+			if n == 1 {
+				return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "x", Medications: []ai.Medication{{Name: "阿莫西林", Quantity: 0}}}, nil
+			}
+			if n == 2 {
+				return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "x", Medications: []ai.Medication{{Name: "阿莫西林", Quantity: 1}}}, nil
+			}
+			return ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "按医嘱服药"}, nil
+		case "emergency_interrupt":
+			return map[string]any{"hit": false}, nil
+		}
+		return nil, nil
+	})
+	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	defer s.Close()
+	id, _ := s.Start(nil, true, nil)
+
+	st, _ := s.PatientSay(context.Background(), id, "嗓子化脓")
+	if st.Kind != StepDrugQuery {
+		t.Fatalf("应 DRUG_QUERY：%+v", st)
+	}
+	st, _ = s.SupplyDrugInfo(context.Background(), id, []DrugInfo{{Name: "阿莫西林", Spec: "每盒20粒×0.25g"}})
+	if st.Kind != StepPurchase || st.Orders[0].Quantity != 1 {
+		t.Fatalf("应 PURCHASE 盒数1：%+v", st)
+	}
+	st, _ = s.SupplyPurchaseResult(context.Background(), id, []DrugPurchase{{Name: "阿莫西林", Bought: true, Quantity: 1}})
+	if st.Kind != StepDone {
+		t.Fatalf("应 DONE：%+v", st)
+	}
+}
+
 // 能力缺失→转诊。
 func TestWalkthroughCapabilityReferral(t *testing.T) {
 	fake := scriptLLM(func(name string, n int) (any, error) {

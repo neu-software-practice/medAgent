@@ -20,6 +20,7 @@ const (
 	phTriage
 	phAwaitTests
 	phTreatment
+	phAwaitDrugInfo
 	phAwaitPurchase
 	phDone
 	phClosed
@@ -28,7 +29,7 @@ const (
 const (
 	maxInterviewTurns  = 20
 	maxTriageRounds    = 10
-	maxTreatmentRounds = 5
+	maxTreatmentRounds = 6 // 含 DRUG_QUERY 轮（查规格/购药/终决占 3 轮），余量留给能力缺失重决策
 )
 
 type session struct {
@@ -37,6 +38,7 @@ type session struct {
 	phase                 phase
 	iTurns, tRounds, pRounds int
 	purchased             bool // 已走过购药回报，处置重决策不再二次购药
+	drugInfoSupplied      bool // 已回填药品规格，处置据规格定盒数
 	record                SessionRecord
 	lastActive            time.Time // 由 sess.mu 保护；reapOnce 用 TryLock 读，写方持 sess.mu
 	mu                    sync.Mutex
