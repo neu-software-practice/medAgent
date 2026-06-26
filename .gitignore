@@ -17,3 +17,6 @@
 /.superpowers/
 /temp/
 /docs/superpowers/
+
+# Claude Code 本地设置
+/.claude/
