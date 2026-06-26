@@ -236,4 +236,41 @@ func TestTransientErrorRecovery(t *testing.T) {
 	}
 }
 
+func TestPurchaseZeroQuantityWarns(t *testing.T) {
+	fake := scriptLLM(func(name string, n int) (any, error) {
+		switch name {
+		case "interview":
+			return ai.InterviewResult{Reply: "够了", Advance: &ai.AdvanceToTriage{Subjective: map[string]any{"a": "b"}}}, nil
+		case "triage_decide":
+			return ai.TriageDecision{Decision: ai.TriageConfirm, Diagnosis: &ai.Diagnosis{Name: "x", Basis: "y", Confidence: 0.9}}, nil
+		case "treatment_plan":
+			// n1 触发 DRUG_QUERY；n2 返回盒数 0（异常）
+			return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "x",
+				Medications: []ai.Medication{{Name: "某药", Quantity: 0}}}, nil
+		}
+		return nil, nil
+	})
+	s := svcWith(t, fake, nil)
+	defer s.Close()
+	id, _ := s.Start(nil, true, nil)
+	st, _ := s.PatientSay(context.Background(), id, "x")
+	if st.Kind != StepDrugQuery {
+		t.Fatalf("应 DRUG_QUERY：%+v", st)
+	}
+	st, _ = s.SupplyDrugInfo(context.Background(), id, []DrugInfo{{Name: "某药", Spec: "每盒10片"}})
+	if st.Kind != StepPurchase {
+		t.Fatalf("应 PURCHASE：%+v", st)
+	}
+	rec, _ := s.Export(id)
+	found := false
+	for _, tn := range rec.Turns {
+		if tn.Kind == "warn" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("盒数0 应产生 warn turn：%+v", rec.Turns)
+	}
+}
+
 var _ = json.Marshal

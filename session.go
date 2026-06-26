@@ -245,6 +245,11 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 				}
 				sess.phase = phAwaitPurchase
 				orders := ordersFromMeds(tp.Medications)
+				for _, o := range orders {
+					if o.Quantity <= 0 {
+						sess.addTurn("warn", fmt.Sprintf("药品「%s」购买盒数为 %d（规格缺失或换药），后端需复核", o.Name, o.Quantity))
+					}
+				}
 				sess.addTurn("purchase_request", fmt.Sprintf("%v", orders))
 				return Step{Kind: StepPurchase, Orders: orders}, nil
 			}

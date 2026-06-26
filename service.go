@@ -29,7 +29,7 @@ const (
 const (
 	maxInterviewTurns  = 20
 	maxTriageRounds    = 10
-	maxTreatmentRounds = 5
+	maxTreatmentRounds = 6 // 含 DRUG_QUERY 轮（查规格/购药/终决占 3 轮），余量留给能力缺失重决策
 )
 
 type session struct {
