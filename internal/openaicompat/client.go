@@ -83,13 +83,15 @@ func (c *Client) Complete(ctx context.Context, req ai.CompletionRequest) (ai.Com
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 请求失败 (%v): %w", err, ai.ErrLLM)
+		// %w 保留底层（含 http.Client.Timeout 的 context.DeadlineExceeded/net 超时），
+		// 供上层归一为 ctx 错误并映射 504。
+		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 请求失败 (%w): %w", err, ai.ErrLLM)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 读取响应失败 (%v): %w", err, ai.ErrLLM)
+		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 读取响应失败 (%w): %w", err, ai.ErrLLM)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

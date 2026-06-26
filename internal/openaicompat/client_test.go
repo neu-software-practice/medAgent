@@ -5,14 +5,39 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"medagent/internal/ai"
 )
+
+func TestComplete_TimeoutPreservesDeadline(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(80 * time.Millisecond)
+	}))
+	defer srv.Close()
+
+	c := New(Config{BaseURL: srv.URL, APIKey: "sk-test", Model: "m", Timeout: 20 * time.Millisecond})
+	_, err := c.Complete(context.Background(), ai.CompletionRequest{
+		Schema: ai.OutputSchema{Name: "x", JSON: json.RawMessage(`{"type":"object"}`)},
+	})
+	if err == nil {
+		t.Fatal("应超时报错")
+	}
+	if !errors.Is(err, ai.ErrLLM) {
+		t.Fatalf("应仍归类 ai.ErrLLM，got %v", err)
+	}
+	// %w 保留底层超时：可被 context.DeadlineExceeded 或 net.Error.Timeout() 识别（mapErr 据此映射 504）
+	var ne net.Error
+	if !errors.Is(err, context.DeadlineExceeded) && !(errors.As(err, &ne) && ne.Timeout()) {
+		t.Fatalf("超时应保留进错误链（ctx 超时或 net 超时），got %v", err)
+	}
+}
 
 func TestComplete_SendsForcedToolUseRequest(t *testing.T) {
 	var gotBody []byte

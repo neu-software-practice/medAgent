@@ -32,7 +32,7 @@ func runStructured[T validatable](
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				return zero, ctxErr
 			}
-			return zero, fmt.Errorf("%w: %s: %v", ErrLLM, agentName, err)
+			return zero, fmt.Errorf("%w: %s: %w", ErrLLM, agentName, err)
 		}
 		lastRaw = res.Raw
 

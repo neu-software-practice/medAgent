@@ -2,7 +2,9 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,6 +29,32 @@ func httpSvc(t *testing.T) *httptest.Server {
 	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
 	t.Cleanup(func() { s.Close() })
 	return httptest.NewServer(s.Handler())
+}
+
+func TestHTTPTimeoutMapsTo504(t *testing.T) {
+	fake := &ai.FakeLLM{On: func(ai.CompletionRequest) (ai.CompletionResult, error) {
+		// 模拟 LLM 客户端自身超时（http.Client.Timeout）：错误链含 context.DeadlineExceeded，请求 ctx 未取消
+		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 请求失败 (%w): %w", context.DeadlineExceeded, ai.ErrLLM)
+	}}
+	s := newService(Config{DisableGuardian: true}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	t.Cleanup(func() { s.Close() })
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	var start struct {
+		SessionID string `json:"session_id"`
+	}
+	postJSON(t, srv.URL+"/sessions", map[string]any{"initial": true}, &start)
+
+	resp, err := http.Post(srv.URL+"/sessions/"+start.SessionID+"/patient-say",
+		"application/json", bytes.NewReader([]byte(`{"message":"hi"}`)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusGatewayTimeout {
+		t.Fatalf("LLM 超时应映射 504，got %d", resp.StatusCode)
+	}
 }
 
 func TestHTTPHappyPath(t *testing.T) {

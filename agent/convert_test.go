@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"medagent/internal/ai"
@@ -47,3 +49,30 @@ func TestMapErr(t *testing.T) {
 		t.Errorf("nil 应映射 nil")
 	}
 }
+
+func TestMapErrTimeoutMapsToDeadline(t *testing.T) {
+	// 链中含 context.DeadlineExceeded（如 LLM 客户端 http.Client.Timeout）→ 归一 ctx 超时（HTTP 504）
+	chain := fmt.Errorf("%w: interview: %w", ai.ErrLLM,
+		fmt.Errorf("openaicompat: 请求失败 (%w)", context.DeadlineExceeded))
+	got := mapErr(chain)
+	if !errors.Is(got, context.DeadlineExceeded) {
+		t.Fatalf("超时应映射 context.DeadlineExceeded，got %v", got)
+	}
+	if errors.Is(got, ErrUpstream) {
+		t.Fatalf("超时不应再归类 ErrUpstream")
+	}
+}
+
+func TestMapErrNetTimeoutMapsToDeadline(t *testing.T) {
+	chain := fmt.Errorf("%w: interview: %w", ai.ErrLLM, netTimeoutErr{})
+	if !errors.Is(mapErr(chain), context.DeadlineExceeded) {
+		t.Fatalf("net 超时应映射 context.DeadlineExceeded（HTTP 504）")
+	}
+}
+
+// netTimeoutErr 实现 net.Error，Timeout()=true，模拟网络超时。
+type netTimeoutErr struct{}
+
+func (netTimeoutErr) Error() string   { return "i/o timeout" }
+func (netTimeoutErr) Timeout() bool   { return true }
+func (netTimeoutErr) Temporary() bool { return false }
