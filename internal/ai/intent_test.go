@@ -52,8 +52,6 @@ func TestTreatmentPlanValidate(t *testing.T) {
 		{"med_no_meds", TreatmentPlan{Plan: PlanMedication, Advice: "多休息"}, false},
 		{"no_advice", TreatmentPlan{Plan: PlanAdviceOnly}, false},
 		{"advice_only_ok", TreatmentPlan{Plan: PlanAdviceOnly, Advice: "观察"}, true},
-		{"treat_ok", TreatmentPlan{Plan: PlanTreatment, Advice: "a", RequiredCapability: "理疗"}, true},
-		{"treat_no_cap", TreatmentPlan{Plan: PlanTreatment, Advice: "a"}, false},
 		{"referral_ok", TreatmentPlan{Plan: PlanReferral, Advice: "a", ReferralReason: "无能力"}, true},
 		{"referral_no_reason", TreatmentPlan{Plan: PlanReferral, Advice: "a"}, false},
 		{"bad_plan", TreatmentPlan{Plan: "UNKNOWN", Advice: "a"}, false},

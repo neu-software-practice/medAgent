@@ -231,11 +231,6 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 			if err != nil {
 				return Step{}, ctxOrMap(cctx, err)
 			}
-			if tp.Plan == ai.PlanTreatment && !s.cfg.Caps[tp.RequiredCapability] {
-				sess.snap.Feedback = &ai.OrchestratorFeedback{LastReject: ai.RejectCapabilityMissing}
-				continue
-			}
-			sess.snap.Feedback = nil
 			if tp.Plan == ai.PlanMedication && !sess.purchased {
 				if !sess.drugInfoSupplied {
 					names := drugNamesOf(tp.Medications)
@@ -245,9 +240,10 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 				}
 				sess.phase = phAwaitPurchase
 				orders := ordersFromMeds(tp.Medications)
-				for _, o := range orders {
-					if o.Quantity <= 0 {
-						sess.addTurn("warn", fmt.Sprintf("药品「%s」购买盒数为 %d（规格缺失或换药），后端需复核", o.Name, o.Quantity))
+				for i := range orders {
+					if orders[i].Quantity <= 0 {
+						sess.addTurn("warn", fmt.Sprintf("药品「%s」模型未给出有效盒数（%d），按 1 盒兜底，后端需复核", orders[i].Name, orders[i].Quantity))
+						orders[i].Quantity = 1
 					}
 				}
 				sess.addTurn("purchase_request", fmt.Sprintf("%v", orders))

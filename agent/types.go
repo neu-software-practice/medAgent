@@ -12,7 +12,6 @@ type Config struct {
 	APIKey          string
 	Model           string
 	BaseURL         string
-	Caps            map[string]bool
 	LogDir          string
 	Timeout         time.Duration
 	SessionTTL      time.Duration

@@ -6,10 +6,9 @@ import (
 	"testing"
 )
 
-func TestTreatmentFourPlansAlwaysAdvice(t *testing.T) {
+func TestTreatmentThreePlansAlwaysAdvice(t *testing.T) {
 	plans := []TreatmentPlan{
 		{Plan: PlanMedication, Advice: "多休息", Medications: []Medication{{Name: "对乙酰氨基酚"}}},
-		{Plan: PlanTreatment, Advice: "复查", RequiredCapability: "理疗"},
 		{Plan: PlanAdviceOnly, Advice: "观察体温"},
 		{Plan: PlanReferral, Advice: "尽快就医", ReferralReason: "本院无能力"},
 	}

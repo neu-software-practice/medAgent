@@ -88,8 +88,8 @@ func TestWalkthroughMedicationViaDrugQuery(t *testing.T) {
 	}
 }
 
-// 能力缺失→转诊。
-func TestWalkthroughCapabilityReferral(t *testing.T) {
+// 直接转诊（院内无法处理 → REFERRAL）。
+func TestWalkthroughReferral(t *testing.T) {
 	fake := scriptLLM(func(name string, n int) (any, error) {
 		switch name {
 		case "interview":
@@ -97,16 +97,13 @@ func TestWalkthroughCapabilityReferral(t *testing.T) {
 		case "triage_decide":
 			return ai.TriageDecision{Decision: ai.TriageConfirm, Diagnosis: &ai.Diagnosis{Name: "需手术病", Basis: "x", Confidence: 0.9}}, nil
 		case "treatment_plan":
-			if n == 1 {
-				return ai.TreatmentPlan{Plan: ai.PlanTreatment, Advice: "需手术", RequiredCapability: "外科手术"}, nil
-			}
-			return ai.TreatmentPlan{Plan: ai.PlanReferral, Advice: "转上级医院", ReferralReason: "本院无外科手术能力"}, nil
+			return ai.TreatmentPlan{Plan: ai.PlanReferral, Advice: "转上级医院", ReferralReason: "本院无法开展，需上级医院"}, nil
 		case "emergency_interrupt":
 			return map[string]any{"hit": false}, nil
 		}
 		return nil, nil
 	})
-	s := newService(Config{Caps: map[string]bool{}}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	st, _ := s.PatientSay(context.Background(), id, "hi")

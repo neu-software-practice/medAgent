@@ -27,9 +27,9 @@ func scriptLLM(fn func(name string, n int) (any, error)) *ai.FakeLLM {
 	}}
 }
 
-func svcWith(t *testing.T, fake *ai.FakeLLM, caps map[string]bool) *Service {
+func svcWith(t *testing.T, fake *ai.FakeLLM) *Service {
 	t.Helper()
-	return newService(Config{Caps: caps, DisableGuardian: true},
+	return newService(Config{DisableGuardian: true},
 		ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
 }
 
@@ -54,7 +54,7 @@ func TestFlowConfirmMedicationPurchaseDone(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 
@@ -91,7 +91,7 @@ func TestSupplyDrugInfoWrongStep(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	if _, err := s.PatientSay(context.Background(), id, "发烧"); err != nil {
@@ -120,7 +120,7 @@ func TestFlowAskThenTest(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 
@@ -153,7 +153,7 @@ func TestWrongStepAndClosed(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	if _, err := s.SupplyTestResults(context.Background(), id, nil); err != ErrWrongStep {
@@ -172,7 +172,7 @@ func TestErrorMapping(t *testing.T) {
 	fake := &ai.FakeLLM{On: func(ai.CompletionRequest) (ai.CompletionResult, error) {
 		return ai.CompletionResult{}, ai.ErrLLM
 	}}
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	if _, err := s.PatientSay(context.Background(), id, "hi"); !errors.Is(err, ErrUpstream) {
@@ -202,7 +202,7 @@ func TestTransientErrorRecovery(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 
@@ -250,7 +250,7 @@ func TestPurchaseZeroQuantityWarns(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := svcWith(t, fake, nil)
+	s := svcWith(t, fake)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	st, _ := s.PatientSay(context.Background(), id, "x")

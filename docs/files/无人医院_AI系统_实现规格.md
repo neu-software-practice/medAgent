@@ -17,8 +17,8 @@
 > |---|---|
 > | §2.2 收敛环三选一、主观优先、TEST 自证约束 | ✅ 忠实实现（`internal/ai`）|
 > | §4.1 四 agent（问诊/triage/处置/急症守护） | ✅ 实现 |
-> | §4.2 意图 schema + reject_reason 五值 | ✅ 类型一致（多数 reject 值 facade 未回灌）|
-> | §4.3 上下文压缩、§3.3 能力不具备→转诊、医嘱无条件生成 | ✅ 实现 |
+> | §4.2 意图 schema + reject_reason | ✅ 类型一致；处置已改**三选一**（删 TREATMENT），reject 去掉 `CAPABILITY_MISSING` |
+> | §4.3 上下文压缩、医嘱无条件生成 | ✅ 实现 |
 > | §7 AI 经 **MCP** 提交意图 | ❌ 改为进程内 tool-use，无 MCP |
 > | §2.3 两类**卡片**（可挂起/强制终结、defer） | ❌ 未实现，坍缩为 HTTP `Step` |
 > | §0/§1 真相来源=**独立后端编排层** | ⚠️ 编排+会话状态搬进 `medagent` 模块内部（内存 session）|
@@ -29,7 +29,8 @@
 > | §2.2/§5.3 轮次撞顶→强制 `StReferral` | ⚠️ 撞顶返回 `ErrUpstream"未收敛"`+关会话，非强制转诊 |
 > | §3.4 `StSoftEnd` 软挂起→复诊 | ⚠️ 改由后端 `Start(initial=false, prior=[…])` 注入历史 |
 > | §8 配置（6/2/30min/置信阈值） | ⚠️ 实为 20/10/6 + `SessionTTL` 30min，无置信阈值 |
-> | —（规格未含）— | ➕ 新增**药品规格查询轮**（`DRUG_QUERY`）+ 处方量改"购买盒数" |
+> | §3.3 TREATMENT 院内治疗 + 能力清单 | ➖ **已删除**（院内治疗执行难闭环）；处置三选一 MEDICATION/ADVICE_ONLY/REFERRAL，移除 `required_capability` 与 `Caps` |
+> | —（规格未含）— | ➕ 新增**药品规格查询轮**（`DRUG_QUERY`）+ 处方量改"购买盒数"（盒数<1 兜底为 1 + warn）|
 
 ---
 

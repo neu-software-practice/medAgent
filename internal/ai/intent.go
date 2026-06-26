@@ -9,7 +9,6 @@ const (
 	RejectNone                   RejectReason = ""
 	RejectSchemaInvalid          RejectReason = "SCHEMA_INVALID"
 	RejectIllegalTransition      RejectReason = "ILLEGAL_TRANSITION"
-	RejectCapabilityMissing      RejectReason = "CAPABILITY_MISSING"
 	RejectSubjectiveNotExhausted RejectReason = "SUBJECTIVE_NOT_EXHAUSTED"
 	RejectRoundLimitFused        RejectReason = "ROUND_LIMIT_FUSED"
 )
@@ -45,23 +44,21 @@ type TriageDecision struct {
 	TestItems           []string     `json:"test_items,omitempty"`
 }
 
-// PlanKind 是处置四选一。
+// PlanKind 是处置三选一（院内治疗执行难以闭环，已移除 TREATMENT）。
 type PlanKind string
 
 const (
 	PlanMedication PlanKind = "MEDICATION"
-	PlanTreatment  PlanKind = "TREATMENT"
 	PlanAdviceOnly PlanKind = "ADVICE_ONLY"
 	PlanReferral   PlanKind = "REFERRAL"
 )
 
 // TreatmentPlan 是处置 agent 的产出。
 type TreatmentPlan struct {
-	Plan               PlanKind     `json:"plan"`
-	Advice             string       `json:"advice"`
-	Medications        []Medication `json:"medications,omitempty"`
-	RequiredCapability string       `json:"required_capability,omitempty"`
-	ReferralReason     string       `json:"referral_reason,omitempty"`
+	Plan           PlanKind     `json:"plan"`
+	Advice         string       `json:"advice"`
+	Medications    []Medication `json:"medications,omitempty"`
+	ReferralReason string       `json:"referral_reason,omitempty"`
 }
 
 // EmergencyInterrupt 是急症守护的产出。
@@ -127,10 +124,6 @@ func (p TreatmentPlan) Validate() error {
 	case PlanMedication:
 		if len(p.Medications) == 0 {
 			return fmt.Errorf("treatment MEDICATION: medications 为空")
-		}
-	case PlanTreatment:
-		if p.RequiredCapability == "" {
-			return fmt.Errorf("treatment TREATMENT: required_capability 为空")
 		}
 	case PlanAdviceOnly:
 		// advice 已在上方校验
