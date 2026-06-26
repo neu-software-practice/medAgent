@@ -41,11 +41,16 @@ func TestFlowConfirmMedicationPurchaseDone(t *testing.T) {
 		case "triage_decide":
 			return ai.TriageDecision{Decision: ai.TriageConfirm, Diagnosis: &ai.Diagnosis{Name: "急性咽炎", Basis: "症状", Confidence: 0.9}}, nil
 		case "treatment_plan":
-			if n == 1 {
+			switch n {
+			case 1: // 规格未知：quantity 0，触发 DRUG_QUERY
+				return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "多休息",
+					Medications: []ai.Medication{{Name: "对乙酰氨基酚", Dosage: "0.5g", Schedule: "每日3次", Quantity: 0}}}, nil
+			case 2: // 规格已知：quantity=盒数
 				return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "多休息",
 					Medications: []ai.Medication{{Name: "对乙酰氨基酚", Dosage: "0.5g", Schedule: "每日3次", Quantity: 2}}}, nil
+			default: // 购药后终决
+				return ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "已购药，按医嘱服用"}, nil
 			}
-			return ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "已购药，按医嘱服用，未购抗生素请补"}, nil
 		}
 		return nil, nil
 	})
@@ -57,8 +62,16 @@ func TestFlowConfirmMedicationPurchaseDone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if st.Kind != StepDrugQuery || len(st.DrugNames) != 1 || st.DrugNames[0] != "对乙酰氨基酚" {
+		t.Fatalf("应到 DRUG_QUERY：%+v", st)
+	}
+
+	st, err = s.SupplyDrugInfo(context.Background(), id, []DrugInfo{{Name: "对乙酰氨基酚", Spec: "每盒12片×0.5g"}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if st.Kind != StepPurchase || len(st.Orders) != 1 || st.Orders[0].Quantity != 2 {
-		t.Fatalf("应到 PURCHASE：%+v", st)
+		t.Fatalf("应到 PURCHASE 且盒数=2：%+v", st)
 	}
 
 	st, err = s.SupplyPurchaseResult(context.Background(), id, []DrugPurchase{{Name: "对乙酰氨基酚", Bought: true, Quantity: 2}})
@@ -67,6 +80,25 @@ func TestFlowConfirmMedicationPurchaseDone(t *testing.T) {
 	}
 	if st.Kind != StepDone || st.Result == nil || st.Result.Final != "ADVICE" {
 		t.Fatalf("应到 DONE：%+v", st)
+	}
+}
+
+func TestSupplyDrugInfoWrongStep(t *testing.T) {
+	fake := scriptLLM(func(name string, n int) (any, error) {
+		switch name {
+		case "interview":
+			return ai.InterviewResult{Reply: "发烧几天？"}, nil // 停在问诊
+		}
+		return nil, nil
+	})
+	s := svcWith(t, fake, nil)
+	defer s.Close()
+	id, _ := s.Start(nil, true, nil)
+	if _, err := s.PatientSay(context.Background(), id, "发烧"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SupplyDrugInfo(context.Background(), id, nil); err != ErrWrongStep {
+		t.Fatalf("非 awaitDrugInfo 调 SupplyDrugInfo 应 ErrWrongStep，得 %v", err)
 	}
 }
 

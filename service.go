@@ -20,6 +20,7 @@ const (
 	phTriage
 	phAwaitTests
 	phTreatment
+	phAwaitDrugInfo
 	phAwaitPurchase
 	phDone
 	phClosed
@@ -37,6 +38,7 @@ type session struct {
 	phase                 phase
 	iTurns, tRounds, pRounds int
 	purchased             bool // 已走过购药回报，处置重决策不再二次购药
+	drugInfoSupplied      bool // 已回填药品规格，处置据规格定盒数
 	record                SessionRecord
 	lastActive            time.Time // 由 sess.mu 保护；reapOnce 用 TryLock 读，写方持 sess.mu
 	mu                    sync.Mutex

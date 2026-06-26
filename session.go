@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"medagent/internal/ai"
@@ -112,6 +113,46 @@ func (s *Service) SupplyPurchaseResult(ctx context.Context, id string, results [
 	return st, err
 }
 
+func (s *Service) SupplyDrugInfo(ctx context.Context, id string, infos []DrugInfo) (Step, error) {
+	sess, err := s.get(id)
+	if err != nil {
+		return Step{}, err
+	}
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+	sess.lastActive = time.Now()
+	if sess.phase == phDone || sess.phase == phClosed {
+		return Step{}, ErrSessionClosed
+	}
+	if sess.phase != phAwaitDrugInfo {
+		return Step{}, ErrWrongStep
+	}
+	nTurns := len(sess.record.Turns)
+	prevSpec, hadSpec := sess.snap.Subjective["药品规格"]
+	var b strings.Builder
+	for _, di := range infos {
+		fmt.Fprintf(&b, "%s：%s；", di.Name, di.Spec)
+		sess.addTurn("drug_info", di.Name+": "+di.Spec)
+	}
+	sess.snap.Subjective["药品规格"] = b.String()
+	sess.drugInfoSupplied = true
+	sess.phase = phTreatment
+	st, err := s.guarded(ctx, sess, ai.Event{Kind: "drug_info", Data: infos}, func(c context.Context) (Step, error) {
+		return s.advance(c, sess)
+	})
+	if err != nil && sess.phase != phDone && sess.phase != phClosed {
+		sess.record.Turns = sess.record.Turns[:nTurns]
+		if hadSpec {
+			sess.snap.Subjective["药品规格"] = prevSpec
+		} else {
+			delete(sess.snap.Subjective, "药品规格")
+		}
+		sess.drugInfoSupplied = false
+		sess.phase = phAwaitDrugInfo
+	}
+	return st, err
+}
+
 // advance 从当前 phase 推进到下一个需外部输入或终态。已持有 sess.mu。
 func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 	cctx := withVisit(ctx, sess.id)
@@ -196,6 +237,12 @@ func (s *Service) advance(ctx context.Context, sess *session) (Step, error) {
 			}
 			sess.snap.Feedback = nil
 			if tp.Plan == ai.PlanMedication && !sess.purchased {
+				if !sess.drugInfoSupplied {
+					names := drugNamesOf(tp.Medications)
+					sess.phase = phAwaitDrugInfo
+					sess.addTurn("drug_query", fmt.Sprintf("%v", names))
+					return Step{Kind: StepDrugQuery, DrugNames: names}, nil
+				}
 				sess.phase = phAwaitPurchase
 				orders := ordersFromMeds(tp.Medications)
 				sess.addTurn("purchase_request", fmt.Sprintf("%v", orders))
@@ -227,4 +274,12 @@ func ctxOrMap(ctx context.Context, err error) error {
 		return ce
 	}
 	return mapErr(err)
+}
+
+func drugNamesOf(meds []ai.Medication) []string {
+	out := make([]string, 0, len(meds))
+	for _, m := range meds {
+		out = append(out, m.Name)
+	}
+	return out
 }
