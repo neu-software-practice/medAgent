@@ -131,6 +131,7 @@ MEDAGENT_REAL_LLM=1 OPENAI_API_KEY=… go test . -run TestRealConsultFlow -v   #
 
 - Go 1.22；零外部依赖（HTTP 用标准库 `net/http` 增强路由）。
 - 选用的 LLM 必须支持 function calling（结构化输出走强制 tool-use）。
+- **模型接入测试状态**：目前**仅 `openai` 接口（含 OpenAI 兼容中转，以 `gpt-5.5` / `gpt-5.4-mini` 实测）经过端到端测试**；`deepseek`、`qwen` 接入已实现但**未经测试**，使用前请自行验证。另：购药盒数计算依赖模型能力——`gpt-5.5` 能据规格正确算盒数，较弱模型可能返回 0（系统兜底为 1 盒并记 `warn`）。
 - 日志含医患对话（医疗数据），落点与脱敏由后端决定；`./logs/` 已 gitignore。
 
 更多见 `docs/后端接入指南.md`（接入）与 `docs/files/无人医院_AI系统_实现规格.md`（原设计 + 现状批注）。
