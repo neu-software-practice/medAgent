@@ -20,3 +20,6 @@
 
 # Claude Code 本地设置
 /.claude/
+
+# 压缩包（设计文档源已在 docs/ 跟踪，无需打包入库）
+*.zip
