@@ -12,3 +12,7 @@
 
 # 诊疗日志（cmd/consult 默认输出）
 /logs/
+
+# 本地临时工作区（superpowers SDD scratch、临时草稿）
+/.superpowers/
+/temp/
