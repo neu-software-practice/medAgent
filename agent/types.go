@@ -1,6 +1,6 @@
-// Package medagent 是无人医院 AI 诊疗服务的唯一对外封装：以 HTTP/JSON 与外部组件通信，
+// Package agent 是无人医院 AI 诊疗服务的唯一对外封装：以 HTTP/JSON 与外部组件通信，
 // 内部按固定流程编排，多轮会话按 sessionID 内存持有。底层决策层在 internal/ 不外泄。
-package medagent
+package agent
 
 import (
 	"encoding/json"

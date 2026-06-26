@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"medagent"
+	"medagent/agent"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 			capSet[c] = true
 		}
 	}
-	svc, err := medagent.New(medagent.Config{
+	svc, err := agent.New(agent.Config{
 		Provider: *provider, APIKey: key, Model: *model, BaseURL: *baseURL,
 		LogDir: *logDir, Caps: capSet,
 	})

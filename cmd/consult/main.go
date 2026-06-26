@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"medagent"
+	"medagent/agent"
 	"medagent/internal/ai"
 	"medagent/internal/openaicompat"
 )
@@ -31,7 +31,7 @@ func main() {
 	model := os.Getenv("MODEL")
 	baseURL := os.Getenv("BASE_URL")
 
-	svc, err := medagent.New(medagent.Config{Provider: provider, APIKey: key, Model: model, BaseURL: baseURL, LogDir: "./logs"})
+	svc, err := agent.New(agent.Config{Provider: provider, APIKey: key, Model: model, BaseURL: baseURL, LogDir: "./logs"})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -64,36 +64,36 @@ func main() {
 }
 
 // handle 处理一个 Step；返回是否终结。需要患者再说话时把下一句写回 *msg。
-func handle(ctx context.Context, svc *medagent.Service, id string, patient ai.LLMClient, st medagent.Step, msg *string) bool {
+func handle(ctx context.Context, svc *agent.Service, id string, patient ai.LLMClient, st agent.Step, msg *string) bool {
 	switch st.Kind {
-	case medagent.StepAsk:
+	case agent.StepAsk:
 		fmt.Printf("🩺 医生：%s\n", st.DoctorSay)
 		*msg = simulate(ctx, patient, st.DoctorSay)
 		return false
-	case medagent.StepNeedTests:
+	case agent.StepNeedTests:
 		fmt.Printf("🧪 检验：%v → 回填\n", st.TestItems)
-		next, _ := svc.SupplyTestResults(ctx, id, []medagent.TestResult{{Item: "血常规", Value: "WBC 13.5↑、中性粒↑，提示细菌"}})
+		next, _ := svc.SupplyTestResults(ctx, id, []agent.TestResult{{Item: "血常规", Value: "WBC 13.5↑、中性粒↑，提示细菌"}})
 		return handle(ctx, svc, id, patient, next, msg)
-	case medagent.StepDrugQuery:
+	case agent.StepDrugQuery:
 		fmt.Printf("💊 查询药品规格：%v → 回填\n", st.DrugNames)
-		var infos []medagent.DrugInfo
+		var infos []agent.DrugInfo
 		for _, name := range st.DrugNames {
-			infos = append(infos, medagent.DrugInfo{Name: name, Spec: "每盒12片×0.3g"})
+			infos = append(infos, agent.DrugInfo{Name: name, Spec: "每盒12片×0.3g"})
 		}
 		next, _ := svc.SupplyDrugInfo(ctx, id, infos)
 		return handle(ctx, svc, id, patient, next, msg)
-	case medagent.StepPurchase:
+	case agent.StepPurchase:
 		fmt.Printf("💊 购药请求：%v → 全部购买\n", st.Orders)
-		var res []medagent.DrugPurchase
+		var res []agent.DrugPurchase
 		for _, o := range st.Orders {
-			res = append(res, medagent.DrugPurchase{Name: o.Name, Bought: true, Quantity: o.Quantity})
+			res = append(res, agent.DrugPurchase{Name: o.Name, Bought: true, Quantity: o.Quantity})
 		}
 		next, _ := svc.SupplyPurchaseResult(ctx, id, res)
 		return handle(ctx, svc, id, patient, next, msg)
-	case medagent.StepEmergency:
+	case agent.StepEmergency:
 		fmt.Printf("🚨 急症转急诊：%s\n", st.Emergency)
 		return true
-	case medagent.StepDone:
+	case agent.StepDone:
 		r := st.Result
 		if r.Diagnosis != nil {
 			fmt.Printf("🏷️ 诊断：%s（%.2f）\n", r.Diagnosis.Name, r.Diagnosis.Confidence)

@@ -1,4 +1,4 @@
-package medagent
+package agent
 
 import (
 	"encoding/json"
