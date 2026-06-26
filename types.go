@@ -25,6 +25,7 @@ const (
 	StepAsk       StepKind = "ASK"
 	StepNeedTests StepKind = "NEED_TESTS"
 	StepPurchase  StepKind = "PURCHASE"
+	StepDrugQuery StepKind = "DRUG_QUERY"
 	StepEmergency StepKind = "EMERGENCY"
 	StepDone      StepKind = "DONE"
 	StepOK        StepKind = "OK"
@@ -34,6 +35,7 @@ type Step struct {
 	Kind      StepKind    `json:"kind"`
 	DoctorSay string      `json:"doctor_say,omitempty"`
 	TestItems []string    `json:"test_items,omitempty"`
+	DrugNames []string    `json:"drug_names,omitempty"`
 	Orders    []DrugOrder `json:"orders,omitempty"`
 	Emergency string      `json:"emergency,omitempty"`
 	Result    *Result     `json:"result,omitempty"`
@@ -74,6 +76,11 @@ type DrugPurchase struct {
 type TestResult struct {
 	Item  string `json:"item"`
 	Value string `json:"value"`
+}
+
+type DrugInfo struct {
+	Name string `json:"name"`
+	Spec string `json:"spec"`
 }
 
 type SessionRecord struct {
