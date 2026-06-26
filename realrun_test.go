@@ -54,6 +54,16 @@ func TestRealConsultFlow(t *testing.T) {
 				t.Fatalf("SupplyTestResults: %v", err)
 			}
 			goto consume
+		case StepDrugQuery:
+			var infos []DrugInfo
+			for _, name := range st.DrugNames {
+				infos = append(infos, DrugInfo{Name: name, Spec: "每盒12片×0.3g"})
+			}
+			st, err = svc.SupplyDrugInfo(ctx, id, infos)
+			if err != nil {
+				t.Fatalf("SupplyDrugInfo: %v", err)
+			}
+			goto consume
 		case StepPurchase:
 			var res []DrugPurchase
 			for _, o := range st.Orders {
