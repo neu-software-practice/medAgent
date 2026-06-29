@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"medagent/internal/ai"
+	"medagent/internal/envfile"
 	"medagent/internal/openaicompat"
 )
 
@@ -38,10 +39,12 @@ var providers = map[string]providerSpec{
 const answerSchema = `{"type":"object","properties":{"answer":{"type":"string"},"confidence":{"type":"number"}},"required":["answer"]}`
 
 func main() {
-	provider := flag.String("provider", "openai", "provider: openai | deepseek | qwen")
-	model := flag.String("model", "", "模型名（留空用 provider 默认）")
+	_ = envfile.Load("")
+
+	provider := flag.String("provider", envfile.Default("MEDAGENT_PROVIDER", "openai"), "provider: openai | deepseek | qwen")
+	model := flag.String("model", envfile.Default("MEDAGENT_MODEL", ""), "模型名（留空用 provider 默认）")
 	prompt := flag.String("prompt", "用一句话解释什么是布洛芬。", "发给模型的问题")
-	baseURL := flag.String("base-url", "", "覆盖 base URL（第三方中转/自建网关；填到 /chat/completions 之前的路径，通常以 /v1 结尾；留空走 provider 默认）")
+	baseURL := flag.String("base-url", envfile.Default("MEDAGENT_BASE_URL", ""), "覆盖 base URL（第三方中转/自建网关；填到 /chat/completions 之前的路径，通常以 /v1 结尾；留空走 provider 默认）")
 	flag.Parse()
 
 	spec, ok := providers[*provider]

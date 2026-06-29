@@ -9,14 +9,17 @@ import (
 	"time"
 
 	"medagent/agent"
+	"medagent/internal/envfile"
 )
 
 func main() {
-	addr := flag.String("addr", ":8080", "监听地址")
-	provider := flag.String("provider", "deepseek", "provider: deepseek|qwen|openai")
-	model := flag.String("model", "deepseek-chat", "模型名")
-	baseURL := flag.String("base-url", "", "覆盖 base URL")
-	logDir := flag.String("log-dir", "./logs", "诊疗日志目录")
+	_ = envfile.Load("")
+
+	addr := flag.String("addr", envfile.Default("MEDAGENT_ADDR", ":8080"), "监听地址")
+	provider := flag.String("provider", envfile.Default("MEDAGENT_PROVIDER", "deepseek"), "provider: deepseek|qwen|openai")
+	model := flag.String("model", envfile.Default("MEDAGENT_MODEL", "deepseek-chat"), "模型名")
+	baseURL := flag.String("base-url", envfile.Default("MEDAGENT_BASE_URL", ""), "覆盖 base URL")
+	logDir := flag.String("log-dir", envfile.Default("MEDAGENT_LOG_DIR", "./logs"), "诊疗日志目录")
 	flag.Parse()
 
 	keyEnv := map[string]string{"deepseek": "DEEPSEEK_API_KEY", "qwen": "DASHSCOPE_API_KEY", "openai": "OPENAI_API_KEY"}[*provider]
