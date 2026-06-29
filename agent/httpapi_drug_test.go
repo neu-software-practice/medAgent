@@ -5,28 +5,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"medagent/internal/ai"
 )
 
 func TestHTTPDrugInfoFlow(t *testing.T) {
-	fake := scriptLLM(func(name string, n int) (any, error) {
-		switch name {
-		case "interview":
-			return ai.InterviewResult{Reply: "够了", Advance: &ai.AdvanceToTriage{Subjective: map[string]any{"a": "b"}}}, nil
-		case "triage_decide":
-			return ai.TriageDecision{Decision: ai.TriageConfirm, Diagnosis: &ai.Diagnosis{Name: "急性咽炎", Basis: "x", Confidence: 0.9}}, nil
-		case "treatment_plan":
-			if n == 1 {
-				return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "x", Medications: []ai.Medication{{Name: "对乙酰氨基酚", Quantity: 0}}}, nil
-			}
-			return ai.TreatmentPlan{Plan: ai.PlanMedication, Advice: "x", Medications: []ai.Medication{{Name: "对乙酰氨基酚", Quantity: 2}}}, nil
-		case "emergency_interrupt":
-			return map[string]any{"hit": false}, nil
-		}
-		return nil, nil
-	})
-	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	s := svcGuarded(chatScript(
+		queryDrugT("对乙酰氨基酚"),
+		purchaseT(map[string]any{"name": "对乙酰氨基酚", "quantity": 2}),
+	), noGuardian())
 	t.Cleanup(func() { s.Close() })
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
@@ -51,7 +36,7 @@ func TestHTTPDrugInfoFlow(t *testing.T) {
 }
 
 func TestHTTPDrugInfoWrongStep409(t *testing.T) {
-	srv := httpSvc(t) // 复用 httpapi_test.go 的 helper（ADVICE_ONLY 流，不进 DRUG_QUERY）
+	srv := httpSvc(t) // 复用 httpapi_test.go 的 helper（finish 流，不进 DRUG_QUERY）
 	defer srv.Close()
 	var start struct {
 		SessionID string `json:"session_id"`

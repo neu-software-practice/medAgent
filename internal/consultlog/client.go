@@ -17,7 +17,10 @@ type Client struct {
 	onErr func(error)
 }
 
-var _ ai.LLMClient = (*Client)(nil)
+var (
+	_ ai.LLMClient  = (*Client)(nil)
+	_ ai.ChatClient = (*Client)(nil)
+)
 
 // Wrap 用 sink 包装 inner。
 func Wrap(inner ai.LLMClient, sink Sink) *Client {
@@ -51,4 +54,37 @@ func (c *Client) Complete(ctx context.Context, req ai.CompletionRequest) (ai.Com
 		c.onErr(werr)
 	}
 	return res, err
+}
+
+// Chat 调用 inner 的 ChatClient 并记录这次调用（每个 agent 循环 step 一行）。
+// inner 必须实现 ai.ChatClient（生产中即 openaicompat.Client）。
+func (c *Client) Chat(ctx context.Context, req ai.ChatRequest) (ai.AssistantTurn, error) {
+	cc, ok := c.inner.(ai.ChatClient)
+	if !ok {
+		return ai.AssistantTurn{}, fmt.Errorf("consultlog: inner 不支持 Chat")
+	}
+	start := time.Now()
+	turn, err := cc.Chat(ctx, req)
+
+	rec := CallRecord{
+		VisitID:   VisitID(ctx),
+		Time:      start,
+		Schema:    "chat",
+		System:    req.System,
+		Messages:  messagesOf(req.Messages),
+		LatencyMS: time.Since(start).Milliseconds(),
+	}
+	if err != nil {
+		rec.Error = err.Error()
+	} else {
+		rec.Raw = turn.Text
+		if len(turn.ToolCalls) > 0 {
+			rec.Schema = "chat:" + turn.ToolCalls[0].Name
+			rec.Structured = turn.ToolCalls[0].Arguments
+		}
+	}
+	if werr := c.sink.Write(rec); werr != nil && c.onErr != nil {
+		c.onErr(werr)
+	}
+	return turn, err
 }

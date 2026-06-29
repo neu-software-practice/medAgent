@@ -16,6 +16,11 @@ type Config struct {
 	Timeout         time.Duration
 	SessionTTL      time.Duration
 	DisableGuardian bool
+
+	// ContextTokens 是模型上下文窗口（token）；0 时按 Model 名查表、再不命中用默认值。
+	// CompactRatio 是触发上下文压缩的占用比例（0~1）；0 时取默认 0.6。
+	ContextTokens int
+	CompactRatio  float64
 }
 
 type StepKind string

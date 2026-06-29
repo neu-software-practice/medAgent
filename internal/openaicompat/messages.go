@@ -17,3 +17,21 @@ func mergeMessages(msgs []ai.Message) []wireMessage {
 	}
 	return out
 }
+
+// chatMessages 把 agent 循环的 ai.Message 1:1 映射成 wire 消息：保留 assistant 的
+// tool_calls 与 tool 角色的 tool_call_id，**不合并同角色**（合并会破坏工具调用协议的配对）。
+func chatMessages(msgs []ai.Message) []wireMessage {
+	out := make([]wireMessage, 0, len(msgs))
+	for _, m := range msgs {
+		wm := wireMessage{Role: m.Role, Content: m.Content, ToolCallID: m.ToolCallID}
+		for _, tc := range m.ToolCalls {
+			wm.ToolCalls = append(wm.ToolCalls, wireToolCall{
+				ID:       tc.ID,
+				Type:     "function",
+				Function: wireToolCallFunc{Name: tc.Name, Arguments: string(tc.Arguments)},
+			})
+		}
+		out = append(out, wm)
+	}
+	return out
+}

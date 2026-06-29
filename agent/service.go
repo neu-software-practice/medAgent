@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,46 +14,59 @@ import (
 	"medagent/internal/consultlog"
 )
 
-type phase int
+type sessionStatus int
 
 const (
-	phInterview phase = iota
-	phTriage
-	phAwaitTests
-	phTreatment
-	phAwaitDrugInfo
-	phAwaitPurchase
-	phDone
-	phClosed
+	stActive sessionStatus = iota
+	stDone
+	stClosed
 )
 
 const (
-	maxInterviewTurns  = 20
-	maxTriageRounds    = 10
-	maxTreatmentRounds = 6 // 含 DRUG_QUERY 轮（查规格/购药/终决占 3 轮），余量留给能力缺失重决策
+	// maxSteps 是一次会话允许的 agent 决策步数（每步一次 LLM 工具调用）上限——step 预算护栏，
+	// 替代旧版按问诊/收敛/处置分别计数。撞顶强制关闭会话。
+	maxSteps = 40
+	// maxInternalSteps 是单次 drive 内允许的连续决策步数上限（防内部纠正死循环）。
+	maxInternalSteps = 8
+	// compactKeepRecent 是上下文压缩时保留的最近原文消息条数，更早的折成摘要。
+	compactKeepRecent = 6
 )
+
+// pendingCall 记录一次让出后等待后端回填的工具调用：name 决定哪个 Supply* 合法，id 用于配对 tool_result。
+type pendingCall struct {
+	id   string
+	name string
+}
 
 type session struct {
-	id                       string
-	snap                     ai.Snapshot
-	phase                    phase
-	iTurns, tRounds, pRounds int
-	purchased                bool // 已走过购药回报，处置重决策不再二次购药
-	drugInfoSupplied         bool // 已回填药品规格，处置据规格定盒数
-	record                   SessionRecord
-	lastActive               time.Time // 由 sess.mu 保护；reapOnce 用 TryLock 读，写方持 sess.mu
-	mu                       sync.Mutex
+	id               string
+	snap             ai.Snapshot  // 急症守护镜像（Interview/TestResults/Diagnosis/Refusals/Profile/History）
+	transcript       []ai.Message // 主 agent 上下文（含 tool_calls / tool 结果）
+	status           sessionStatus
+	pending          *pendingCall // 非空=挂起等回填；nil=未开始或刚终态
+	steps            int          // 已消耗 step 预算
+	purchased        bool         // 已走过购药回报，防 resume 二次购药
+	drugInfoSupplied bool         // 已回填药品规格
+	lastPromptTokens int          // 上一步 provider 返回的真实输入 token（压缩阈值用）
+	record           SessionRecord
+	lastActive       time.Time // 由 sess.mu 保护；reapOnce 用 TryLock 读
+	mu               sync.Mutex
 }
 
 func (sess *session) addTurn(kind, text string) {
 	sess.record.Turns = append(sess.record.Turns, RecordedTurn{At: nowSec(), Kind: kind, Text: text})
 }
 
+// closed 表示会话已不可推进（终态或被关闭）。
+func (sess *session) closed() bool { return sess.status == stDone || sess.status == stClosed }
+
 type Service struct {
-	cfg      Config
-	layer    ai.DecisionLayer
-	guardian ai.Guardian
-	ttl      time.Duration
+	cfg          Config
+	engine       *ai.Engine
+	guardian     ai.Guardian
+	ttl          time.Duration
+	ctxTokens    int     // 模型上下文窗口（token）
+	compactRatio float64 // 压缩触发占用比例
 
 	mu       sync.RWMutex
 	sessions map[string]*session
@@ -61,16 +75,40 @@ type Service struct {
 	wg   sync.WaitGroup
 }
 
-func newService(cfg Config, layer ai.DecisionLayer, guardian ai.Guardian) *Service {
+func newService(cfg Config, engine *ai.Engine, guardian ai.Guardian) *Service {
 	ttl := cfg.SessionTTL
 	if ttl == 0 {
 		ttl = 30 * time.Minute
 	}
-	s := &Service{cfg: cfg, layer: layer, guardian: guardian, ttl: ttl,
+	ctxTokens := cfg.ContextTokens
+	if ctxTokens == 0 {
+		ctxTokens = contextWindowFor(cfg.Model)
+	}
+	ratio := cfg.CompactRatio
+	if ratio <= 0 || ratio >= 1 {
+		ratio = 0.6
+	}
+	s := &Service{cfg: cfg, engine: engine, guardian: guardian, ttl: ttl,
+		ctxTokens: ctxTokens, compactRatio: ratio,
 		sessions: map[string]*session{}, stop: make(chan struct{})}
 	s.wg.Add(1)
 	go s.reaper()
 	return s
+}
+
+// contextWindowFor 按模型名粗匹配上下文窗口（token），不命中给保守默认。
+func contextWindowFor(model string) int {
+	m := strings.ToLower(model)
+	switch {
+	case strings.Contains(m, "gpt-5"), strings.Contains(m, "gpt-4.1"), strings.Contains(m, "gpt-4o"):
+		return 128000
+	case strings.Contains(m, "deepseek"):
+		return 64000
+	case strings.Contains(m, "qwen"):
+		return 32000
+	default:
+		return 32000
+	}
 }
 
 func (s *Service) Close() error {
@@ -97,7 +135,7 @@ func (s *Service) Start(profile map[string]any, initial bool, prior []SessionRec
 	}
 	sess := &session{
 		id:         id,
-		phase:      phInterview,
+		status:     stActive,
 		snap:       ai.Snapshot{Subjective: map[string]any{}, Profile: prof, History: renderHistory(prior)},
 		record:     SessionRecord{SessionID: id, Initial: initial, StartedAt: nowSec(), Profile: prof},
 		lastActive: time.Now(),
@@ -164,7 +202,7 @@ func (s *Service) reapOnce(now time.Time) {
 	}
 }
 
-// withVisit 在 ctx 上绑 sessionID 供日志归档（consultlog 用；FakeLLM 忽略）。
+// withVisit 在 ctx 上绑 sessionID 供日志归档（consultlog 用；fake 忽略）。
 func withVisit(ctx context.Context, id string) context.Context {
 	return consultlog.WithVisitID(ctx, id)
 }

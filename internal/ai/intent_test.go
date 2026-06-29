@@ -2,46 +2,6 @@ package ai
 
 import "testing"
 
-func TestAdvanceToTriageValidate(t *testing.T) {
-	if err := (AdvanceToTriage{Subjective: map[string]any{"主诉": "咽痛"}}).Validate(); err != nil {
-		t.Fatalf("期望通过，得到 %v", err)
-	}
-	if err := (AdvanceToTriage{}).Validate(); err == nil {
-		t.Fatal("空 subjective 应失败")
-	}
-}
-
-func TestTriageDecisionValidate(t *testing.T) {
-	cases := []struct {
-		name string
-		in   TriageDecision
-		ok   bool
-	}{
-		{"confirm_ok", TriageDecision{Decision: TriageConfirm, Diagnosis: &Diagnosis{Name: "急性咽炎", Confidence: 0.9}}, true},
-		{"confirm_no_diag", TriageDecision{Decision: TriageConfirm}, false},
-		{"confirm_bad_conf", TriageDecision{Decision: TriageConfirm, Diagnosis: &Diagnosis{Name: "x", Confidence: 1.5}}, false},
-		{"confirm_neg_conf", TriageDecision{Decision: TriageConfirm, Diagnosis: &Diagnosis{Name: "x", Confidence: -0.1}}, false},
-		{"interview_ok", TriageDecision{Decision: TriageInterview, MissingSubjective: []string{"体温"}}, true},
-		{"interview_empty", TriageDecision{Decision: TriageInterview}, false},
-		{"test_ok", TriageDecision{Decision: TriageTest, SubjectiveExhausted: true, Reason: "区分感染", TestItems: []string{"血常规"}}, true},
-		{"test_not_exhausted", TriageDecision{Decision: TriageTest, Reason: "x", TestItems: []string{"血常规"}}, false},
-		{"test_no_reason", TriageDecision{Decision: TriageTest, SubjectiveExhausted: true, TestItems: []string{"血常规"}}, false},
-		{"test_no_items", TriageDecision{Decision: TriageTest, SubjectiveExhausted: true, Reason: "x"}, false},
-		{"bad_decision", TriageDecision{Decision: "FOO"}, false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			err := c.in.Validate()
-			if c.ok && err != nil {
-				t.Fatalf("期望通过，得到 %v", err)
-			}
-			if !c.ok && err == nil {
-				t.Fatal("期望失败，却通过")
-			}
-		})
-	}
-}
-
 func TestTreatmentPlanValidate(t *testing.T) {
 	cases := []struct {
 		name string
@@ -66,25 +26,6 @@ func TestTreatmentPlanValidate(t *testing.T) {
 				t.Fatal("期望失败，却通过")
 			}
 		})
-	}
-}
-
-func TestInterviewResultValidate(t *testing.T) {
-	if err := (InterviewResult{Reply: "请问体温多少？"}).Validate(); err != nil {
-		t.Fatalf("纯追问应通过，得到 %v", err)
-	}
-	if err := (InterviewResult{Advance: &AdvanceToTriage{Subjective: map[string]any{"a": 1}}}).Validate(); err != nil {
-		t.Fatalf("带 advance 应通过，得到 %v", err)
-	}
-	// Reply 与 Advance 可共存：Advance 时 Reply 是过场告知（与 Task 13 walkthrough 一致）。
-	if err := (InterviewResult{Reply: "信息够了，我来判断一下。", Advance: &AdvanceToTriage{Subjective: map[string]any{"a": 1}}}).Validate(); err != nil {
-		t.Fatalf("Reply+Advance 共存应通过，得到 %v", err)
-	}
-	if err := (InterviewResult{}).Validate(); err == nil {
-		t.Fatal("既无 reply 又无 advance 应失败")
-	}
-	if err := (InterviewResult{Advance: &AdvanceToTriage{}}).Validate(); err == nil {
-		t.Fatal("advance.subjective 为空应失败")
 	}
 }
 

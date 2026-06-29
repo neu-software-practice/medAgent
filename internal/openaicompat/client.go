@@ -36,7 +36,10 @@ type Client struct {
 	http *http.Client
 }
 
-var _ ai.LLMClient = (*Client)(nil)
+var (
+	_ ai.LLMClient  = (*Client)(nil)
+	_ ai.ChatClient = (*Client)(nil)
+)
 
 // New 按 Config 构造 Client。
 func New(cfg Config) *Client {
@@ -68,15 +71,39 @@ func (c *Client) Complete(ctx context.Context, req ai.CompletionRequest) (ai.Com
 	if err := ctx.Err(); err != nil {
 		return ai.CompletionResult{}, err
 	}
-
 	body, err := json.Marshal(buildRequest(req, c.cfg.Model))
 	if err != nil {
 		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 编码请求失败 (%v): %w", err, ai.ErrLLM)
 	}
+	respBody, err := c.post(ctx, body)
+	if err != nil {
+		return ai.CompletionResult{}, err
+	}
+	return parseResult(respBody)
+}
 
+// Chat 发起一次多工具对话调用（agent 循环用），返回模型的文本/工具调用与 token 用量。
+// 传输/非 2xx/协议异常全部包进 ai.ErrLLM；不做网络重试。
+func (c *Client) Chat(ctx context.Context, req ai.ChatRequest) (ai.AssistantTurn, error) {
+	if err := ctx.Err(); err != nil {
+		return ai.AssistantTurn{}, err
+	}
+	body, err := json.Marshal(buildChatRequest(req, c.cfg.Model))
+	if err != nil {
+		return ai.AssistantTurn{}, fmt.Errorf("openaicompat: 编码请求失败 (%v): %w", err, ai.ErrLLM)
+	}
+	respBody, err := c.post(ctx, body)
+	if err != nil {
+		return ai.AssistantTurn{}, err
+	}
+	return parseAssistantTurn(respBody)
+}
+
+// post 发起一次 chat-completions POST，返回响应体。传输/非 2xx/读取错误全部包进 ai.ErrLLM。
+func (c *Client) post(ctx context.Context, body []byte) ([]byte, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 构造请求失败 (%v): %w", err, ai.ErrLLM)
+		return nil, fmt.Errorf("openaicompat: 构造请求失败 (%v): %w", err, ai.ErrLLM)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
@@ -85,20 +112,18 @@ func (c *Client) Complete(ctx context.Context, req ai.CompletionRequest) (ai.Com
 	if err != nil {
 		// %w 保留底层（含 http.Client.Timeout 的 context.DeadlineExceeded/net 超时），
 		// 供上层归一为 ctx 错误并映射 504。
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 请求失败 (%w): %w", err, ai.ErrLLM)
+		return nil, fmt.Errorf("openaicompat: 请求失败 (%w): %w", err, ai.ErrLLM)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 读取响应失败 (%w): %w", err, ai.ErrLLM)
+		return nil, fmt.Errorf("openaicompat: 读取响应失败 (%w): %w", err, ai.ErrLLM)
 	}
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 非 2xx 响应 %d: %s: %w", resp.StatusCode, snippet(respBody), ai.ErrLLM)
+		return nil, fmt.Errorf("openaicompat: 非 2xx 响应 %d: %s: %w", resp.StatusCode, snippet(respBody), ai.ErrLLM)
 	}
-
-	return parseResult(respBody)
+	return respBody, nil
 }
 
 // snippet 截断响应体，避免错误信息/日志爆量。

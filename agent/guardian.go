@@ -78,7 +78,7 @@ func (s *Service) guarded(ctx context.Context, sess *session, ev ai.Event, main 
 
 func (s *Service) emergency(sess *session, reason string) Step {
 	sess.addTurn("emergency", reason)
-	sess.phase = phClosed
+	sess.status = stClosed
 	sess.record.Outcome = nil // 急症终止：清掉可能已被 finish 写入的完成态，避免记录不一致
 	t := nowSec()
 	sess.record.EndedAt = &t
@@ -112,7 +112,7 @@ func (s *Service) ReportVitals(ctx context.Context, id string, vitals map[string
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 	sess.lastActive = time.Now()
-	if sess.phase == phDone || sess.phase == phClosed {
+	if sess.closed() {
 		return Step{}, ErrSessionClosed
 	}
 	if s.cfg.DisableGuardian {

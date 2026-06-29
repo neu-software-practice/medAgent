@@ -8,13 +8,7 @@ import (
 )
 
 func TestGuardianHitPreempts(t *testing.T) {
-	fake := &ai.FakeLLM{On: func(req ai.CompletionRequest) (ai.CompletionResult, error) {
-		if req.Schema.Name == "emergency_interrupt" {
-			return ai.StructuredOf(map[string]any{"hit": true, "reason": "疑似心梗"}), nil
-		}
-		return ai.StructuredOf(ai.InterviewResult{Reply: "继续问"}), nil
-	}}
-	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake)) // 守护默认开
+	s := svcGuarded(chatScript(askT("继续问")), guardianHit("疑似心梗"))
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	st, err := s.PatientSay(context.Background(), id, "胸口剧痛冒冷汗")
@@ -30,13 +24,7 @@ func TestGuardianHitPreempts(t *testing.T) {
 }
 
 func TestGuardianFailOpen(t *testing.T) {
-	fake := &ai.FakeLLM{On: func(req ai.CompletionRequest) (ai.CompletionResult, error) {
-		if req.Schema.Name == "emergency_interrupt" {
-			return ai.CompletionResult{}, ai.ErrLLM // 守护出错
-		}
-		return ai.StructuredOf(ai.InterviewResult{Reply: "请问哪里不舒服？"}), nil
-	}}
-	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	s := svcGuarded(chatScript(askT("请问哪里不舒服？")), guardianErr())
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	st, err := s.PatientSay(context.Background(), id, "有点不舒服")
@@ -50,13 +38,10 @@ func TestGuardianFailOpen(t *testing.T) {
 
 func TestReportVitals(t *testing.T) {
 	hit := false
-	fake := &ai.FakeLLM{On: func(req ai.CompletionRequest) (ai.CompletionResult, error) {
-		if req.Schema.Name == "emergency_interrupt" {
-			return ai.StructuredOf(map[string]any{"hit": hit, "reason": "血压骤降"}), nil
-		}
-		return ai.StructuredOf(ai.InterviewResult{Reply: "x"}), nil
+	guard := &ai.FakeLLM{On: func(ai.CompletionRequest) (ai.CompletionResult, error) {
+		return ai.StructuredOf(map[string]any{"hit": hit, "reason": "血压骤降"}), nil
 	}}
-	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	s := svcGuarded(chatScript(askT("x")), guard)
 	defer s.Close()
 	id, _ := s.Start(nil, true, nil)
 	st, _ := s.ReportVitals(context.Background(), id, map[string]any{"收缩压": 70})

@@ -14,10 +14,15 @@ type Message struct {
 }
 
 // messagesOf 把 ai.Message 列表转成记录用的 Message 列表。
+// assistant 轮的工具调用折进 content 以便审计（Complete 路径无 tool_calls，内容不变）。
 func messagesOf(in []ai.Message) []Message {
 	out := make([]Message, len(in))
 	for i, m := range in {
-		out[i] = Message{Role: m.Role, Content: m.Content}
+		content := m.Content
+		for _, tc := range m.ToolCalls {
+			content += "\n[tool_call " + tc.Name + " " + string(tc.Arguments) + "]"
+		}
+		out[i] = Message{Role: m.Role, Content: content}
 	}
 	return out
 }

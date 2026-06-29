@@ -11,10 +11,8 @@ import (
 
 func testService(t *testing.T) *Service {
 	t.Helper()
-	fake := &ai.FakeLLM{On: func(ai.CompletionRequest) (ai.CompletionResult, error) {
-		return ai.CompletionResult{}, nil
-	}}
-	return newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	// 这些用例不触发 LLM（仅 Start/Export/TTL）：引擎/守护用不会被调用的 fake。
+	return newService(Config{}, ai.NewEngine(chatScript()), ai.NewGuardian(noGuardian()))
 }
 
 func TestStartExport(t *testing.T) {
