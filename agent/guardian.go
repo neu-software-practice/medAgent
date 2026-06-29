@@ -79,7 +79,8 @@ func (s *Service) guarded(ctx context.Context, sess *session, ev ai.Event, main 
 func (s *Service) emergency(sess *session, reason string) Step {
 	sess.addTurn("emergency", reason)
 	sess.status = stClosed
-	sess.record.Outcome = nil // 急症终止：清掉可能已被 finish 写入的完成态，避免记录不一致
+	sess.record.Outcome = nil  // 急症终止：清掉可能已被 finish 写入的完成态，避免记录不一致
+	sess.snap.Diagnosis = nil // 同步清理快照中的诊断
 	t := nowSec()
 	sess.record.EndedAt = &t
 	return Step{Kind: StepEmergency, Emergency: reason}
@@ -99,6 +100,10 @@ func cloneSnapshot(s ai.Snapshot) ai.Snapshot {
 	}
 	if s.Profile != nil {
 		c.Profile = append(json.RawMessage(nil), s.Profile...)
+	}
+	if s.Diagnosis != nil {
+		dg := *s.Diagnosis
+		c.Diagnosis = &dg
 	}
 	return c
 }

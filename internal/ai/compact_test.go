@@ -52,8 +52,9 @@ func TestEstimateTokens(t *testing.T) {
 	if EstimateTokens(nil) != 0 {
 		t.Fatal("空应为 0")
 	}
-	if n := EstimateTokens([]Message{{Role: "user", Content: "发烧咳嗽"}}); n != 4 {
-		t.Fatalf("4 个 rune 应估 4，得 %d", n)
+	// "发烧咳嗽" = 12 字节 UTF-8，统一按字节估算。
+	if n := EstimateTokens([]Message{{Role: "user", Content: "发烧咳嗽"}}); n != 12 {
+		t.Fatalf("12 字节应估 12，得 %d", n)
 	}
 }
 

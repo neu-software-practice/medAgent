@@ -13,7 +13,9 @@ import (
 )
 
 func main() {
-	_ = envfile.Load("")
+	if err := envfile.Load(""); err != nil {
+		log.Printf("加载 .env 失败（继续启动）: %v", err)
+	}
 
 	addr := flag.String("addr", envfile.Default("MEDAGENT_ADDR", ":8080"), "监听地址")
 	provider := flag.String("provider", envfile.Default("MEDAGENT_PROVIDER", "deepseek"), "provider: deepseek|qwen|openai")

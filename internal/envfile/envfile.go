@@ -69,9 +69,10 @@ func cwd() string {
 	return dir
 }
 
-// Default 返回环境变量 key 的值；若未设置或为空，返回 def。
+// Default 返回环境变量 key 的值；若未设置，返回 def。
+// 与 os.Getenv 不同：显式设为空字符串（KEY=）会保留空值，不会被 def 覆盖。
 func Default(key, def string) string {
-	if v := os.Getenv(key); v != "" {
+	if v, ok := os.LookupEnv(key); ok {
 		return v
 	}
 	return def

@@ -58,11 +58,12 @@ func renderTranscript(msgs []Message) string {
 }
 
 // EstimateTokens 是零依赖的粗略 token 估算（CJK 友好、偏保守，宁可早压缩）：
-// 按 rune 计内容，工具入参按字节计。无 provider usage 时作回退信号。
+// Content 与 tool_calls arguments 统一按 UTF-8 字节数估算，避免中文场景低估。
+// 无 provider usage 时作回退信号。
 func EstimateTokens(msgs []Message) int {
 	n := 0
 	for _, m := range msgs {
-		n += len([]rune(m.Content))
+		n += len(m.Content)
 		for _, tc := range m.ToolCalls {
 			n += len(tc.Arguments)
 		}

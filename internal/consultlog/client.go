@@ -2,6 +2,7 @@ package consultlog
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -78,9 +79,8 @@ func (c *Client) Chat(ctx context.Context, req ai.ChatRequest) (ai.AssistantTurn
 		rec.Error = err.Error()
 	} else {
 		rec.Raw = turn.Text
-		if len(turn.ToolCalls) > 0 {
-			rec.Schema = "chat:" + turn.ToolCalls[0].Name
-			rec.Structured = turn.ToolCalls[0].Arguments
+		for _, tc := range turn.ToolCalls {
+			rec.ToolCalls = append(rec.ToolCalls, CallToolCall{Name: tc.Name, Arguments: json.RawMessage(tc.Arguments)})
 		}
 	}
 	if werr := c.sink.Write(rec); werr != nil && c.onErr != nil {

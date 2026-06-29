@@ -44,11 +44,11 @@ func TestWrapChatRecordsToolCall(t *testing.T) {
 		t.Fatalf("应记 1 条")
 	}
 	r := sink.recs[0]
-	if r.VisitID != "v9" || r.Schema != "chat:order_test" {
+	if r.VisitID != "v9" || r.Schema != "chat" {
 		t.Errorf("记录 schema 错：%+v", r)
 	}
-	if string(r.Structured) != `{"items":["血常规"]}` {
-		t.Errorf("structured 错：%s", r.Structured)
+	if len(r.ToolCalls) != 1 || r.ToolCalls[0].Name != "order_test" || string(r.ToolCalls[0].Arguments) != `{"items":["血常规"]}` {
+		t.Errorf("tool_calls 错：%+v", r.ToolCalls)
 	}
 }
 

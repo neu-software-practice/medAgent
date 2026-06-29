@@ -100,7 +100,9 @@ func newService(cfg Config, engine *ai.Engine, guardian ai.Guardian) *Service {
 func contextWindowFor(model string) int {
 	m := strings.ToLower(model)
 	switch {
-	case strings.Contains(m, "gpt-5"), strings.Contains(m, "gpt-4.1"), strings.Contains(m, "gpt-4o"):
+	case strings.Contains(m, "gpt-5"), strings.Contains(m, "gpt-4.1"), strings.Contains(m, "gpt-4o"), strings.Contains(m, "gpt-4.5"):
+		return 128000
+	case strings.Contains(m, "gpt-4"):
 		return 128000
 	case strings.Contains(m, "deepseek"):
 		return 64000
@@ -119,7 +121,11 @@ func (s *Service) Close() error {
 
 func newSessionID() string {
 	var b [6]byte
-	_, _ = rand.Read(b[:])
+	if _, err := rand.Read(b[:]); err != nil {
+		// crypto/rand.Read 在 Linux 上不会失败；若极端情况出错，用时间纳秒作回退熵。
+		now := time.Now()
+		_ = copy(b[:], fmt.Sprintf("%06d", now.UnixNano()%1_000_000))
+	}
 	return time.Now().Format("20060102-150405") + "-" + hex.EncodeToString(b[:])
 }
 

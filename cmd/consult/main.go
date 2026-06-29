@@ -19,17 +19,19 @@ const patientCaseSheet = `你在扮演一名前来就诊的成年患者。你的
 只用一两句口语化中文回答；首轮先说来意。只通过 reply 字段返回。`
 
 func main() {
-	_ = envfile.Load("")
+	if err := envfile.Load(""); err != nil {
+		fmt.Fprintf(os.Stderr, "加载 .env 失败（继续）: %v\n", err)
+	}
 
-	provider := envfile.Default("MEDAGENT_LLM_PROVIDER", "deepseek")
+	provider := envfile.Default("MEDAGENT_PROVIDER", "deepseek")
 	keyEnv := map[string]string{"deepseek": "DEEPSEEK_API_KEY", "qwen": "DASHSCOPE_API_KEY", "openai": "OPENAI_API_KEY"}[provider]
 	key := os.Getenv(keyEnv)
 	if key == "" {
 		fmt.Fprintf(os.Stderr, "缺少 %s\n", keyEnv)
 		os.Exit(1)
 	}
-	model := os.Getenv("MEDAGENT_LLM_MODEL")
-	baseURL := os.Getenv("MEDAGENT_LLM_BASE_URL")
+	model := envfile.Default("MEDAGENT_MODEL", "deepseek-chat")
+	baseURL := envfile.Default("MEDAGENT_BASE_URL", "")
 	logDir := envfile.Default("MEDAGENT_LOG_DIR", "./logs")
 
 	svc, err := agent.New(agent.Config{Provider: provider, APIKey: key, Model: model, BaseURL: baseURL, LogDir: logDir})
@@ -43,7 +45,11 @@ func main() {
 	patient := patientClient(provider, baseURL, key, model)
 	ctx := context.Background()
 
-	id, _ := svc.Start(map[string]any{"年龄": 30, "性别": "男"}, true, nil)
+	id, err := svc.Start(map[string]any{"年龄": 30, "性别": "男"}, true, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Start: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Printf("=== 诊疗开始 session=%s ===\n", id)
 
 	msg := simulate(ctx, patient, "")
