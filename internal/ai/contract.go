@@ -75,13 +75,6 @@ type Snapshot struct {
 	Feedback *OrchestratorFeedback
 }
 
-// DecisionLayer 是主决策层接口。全部无状态。
-type DecisionLayer interface {
-	Interview(ctx context.Context, s Snapshot) (InterviewResult, error)
-	Triage(ctx context.Context, s Snapshot) (TriageDecision, error)
-	Treatment(ctx context.Context, s Snapshot) (TreatmentPlan, error)
-}
-
 // Guardian 是急症守护接口，纯判断。并发/ticker 由编排层负责。
 type Guardian interface {
 	Assess(ctx context.Context, s Snapshot, ev Event) (EmergencyInterrupt, bool, error)

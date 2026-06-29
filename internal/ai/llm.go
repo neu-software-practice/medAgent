@@ -7,8 +7,12 @@ import (
 
 // Message 是一条对话消息。
 type Message struct {
-	Role    string // "user" | "assistant"
+	Role    string // "user" | "assistant" | "tool"
 	Content string
+
+	// 以下字段服务于 agent 工具循环（Chat 路径）；Complete 路径不使用、保持零值。
+	ToolCalls  []ToolCall // Role=="assistant" 时携带的工具调用
+	ToolCallID string     // Role=="tool" 时，对应 ToolCall.ID（回填结果用）
 }
 
 // OutputSchema 描述期望输出的 JSON schema；Name 供 tool-use 命名用。

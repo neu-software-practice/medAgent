@@ -31,3 +31,33 @@ func buildRequest(req ai.CompletionRequest, model string) chatRequest {
 		},
 	}
 }
+
+// buildChatRequest 把 agent 循环的 ChatRequest 映射成多工具请求体：
+// System → 首条 system 消息；Messages 按工具协议 1:1 保留（不合并）；
+// Tools 全量映射；ToolChoice 原样透传（本设计 "required"）。
+func buildChatRequest(req ai.ChatRequest, model string) chatLoopRequest {
+	msgs := make([]wireMessage, 0, len(req.Messages)+1)
+	if req.System != "" {
+		msgs = append(msgs, wireMessage{Role: "system", Content: req.System})
+	}
+	msgs = append(msgs, chatMessages(req.Messages)...)
+
+	tools := make([]tool, 0, len(req.Tools))
+	for _, t := range req.Tools {
+		tools = append(tools, tool{
+			Type: "function",
+			Function: toolFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.Parameters,
+			},
+		})
+	}
+
+	return chatLoopRequest{
+		Model:      model,
+		Messages:   msgs,
+		Tools:      tools,
+		ToolChoice: req.ToolChoice,
+	}
+}

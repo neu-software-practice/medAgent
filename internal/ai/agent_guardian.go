@@ -44,3 +44,23 @@ func (a guardianAgent) Assess(ctx context.Context, s Snapshot, ev Event) (Emerge
 func renderEvent(ev Event) string {
 	return fmt.Sprintf("【最新事件】类型 %s：%v", ev.Kind, ev.Data)
 }
+
+// NewGuardian 用给定 LLMClient 构造急症守护（与主 agent 循环并发运行）。
+func NewGuardian(llm LLMClient) Guardian { return guardianAgent{llm: llm} }
+
+var _ Guardian = guardianAgent{}
+
+const promptGuardian = `你是无人医院的急症守护，与主流程并行运行，实时读取全量信息流。基于【就诊快照】与【最新事件】，判断当前是否出现需要立即打断、转去急诊的危急情况。
+- 若命中：hit=true，并在 reason 简述危急依据。
+- 若未命中：hit=false。
+- 这是概念性项目，按你的临床判断行事，不套用固定危险信号清单；宁严勿松，但不要无依据地打断。
+按给定 JSON schema 输出。`
+
+var schemaEmergency = OutputSchema{Name: "emergency_interrupt", JSON: json.RawMessage(`{
+  "type": "object",
+  "properties": {
+    "hit": {"type": "boolean"},
+    "reason": {"type": "string"}
+  },
+  "required": ["hit"]
+}`)}

@@ -26,3 +26,25 @@ func parseResult(body []byte) (ai.CompletionResult, error) {
 		Raw:        args,
 	}, nil
 }
+
+// parseAssistantTurn 从多工具响应里取出 assistant 的文本与全部 tool_call，并读 usage.prompt_tokens。
+// 与 parseResult 不同：不强求存在 tool_call（由 agent 循环按 tool_choice 语义裁决）。
+func parseAssistantTurn(body []byte) (ai.AssistantTurn, error) {
+	var resp chatResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return ai.AssistantTurn{}, fmt.Errorf("openaicompat: 解析响应失败 (%v): %w", err, ai.ErrLLM)
+	}
+	if len(resp.Choices) == 0 {
+		return ai.AssistantTurn{}, fmt.Errorf("openaicompat: 响应缺少 choices: %w", ai.ErrLLM)
+	}
+	msg := resp.Choices[0].Message
+	turn := ai.AssistantTurn{Text: msg.Content, PromptTokens: resp.Usage.PromptTokens}
+	for _, tc := range msg.ToolCalls {
+		turn.ToolCalls = append(turn.ToolCalls, ai.ToolCall{
+			ID:        tc.ID,
+			Name:      tc.Function.Name,
+			Arguments: json.RawMessage(tc.Function.Arguments),
+		})
+	}
+	return turn, nil
+}

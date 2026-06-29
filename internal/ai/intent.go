@@ -2,7 +2,7 @@ package ai
 
 import "fmt"
 
-// RejectReason 是编排层语义校验的回传原因（镜像系统规格 §4.2）。
+// RejectReason 保留供 OrchestratorFeedback / guardian 快照渲染使用（编排语义校验回传原因）。
 type RejectReason string
 
 const (
@@ -13,38 +13,7 @@ const (
 	RejectRoundLimitFused        RejectReason = "ROUND_LIMIT_FUSED"
 )
 
-// AdvanceToTriage：问诊充分，请求进入决策。
-type AdvanceToTriage struct {
-	Subjective map[string]any `json:"subjective"`
-}
-
-// InterviewResult 是问诊 agent 的产出：Reply 总是给患者的话；Advance 非空表示问诊充分，
-// 此时 Reply 为过场告知（二者可共存）。仅 Reply 为空且无 Advance 时非法。
-type InterviewResult struct {
-	Reply   string           `json:"reply"`
-	Advance *AdvanceToTriage `json:"advance,omitempty"`
-}
-
-// TriageChoice 是收敛环三选一。
-type TriageChoice string
-
-const (
-	TriageConfirm   TriageChoice = "CONFIRM"
-	TriageInterview TriageChoice = "INTERVIEW"
-	TriageTest      TriageChoice = "TEST"
-)
-
-// TriageDecision 是 triage agent 的产出。
-type TriageDecision struct {
-	Decision            TriageChoice `json:"decision"`
-	Diagnosis           *Diagnosis   `json:"diagnosis,omitempty"`
-	MissingSubjective   []string     `json:"missing_subjective,omitempty"`
-	SubjectiveExhausted bool         `json:"subjective_exhausted,omitempty"`
-	Reason              string       `json:"reason,omitempty"`
-	TestItems           []string     `json:"test_items,omitempty"`
-}
-
-// PlanKind 是处置三选一（院内治疗执行难以闭环，已移除 TREATMENT）。
+// PlanKind 是处置三选一（院内治疗执行难以闭环，无 TREATMENT）。
 type PlanKind string
 
 const (
@@ -53,7 +22,7 @@ const (
 	PlanReferral   PlanKind = "REFERRAL"
 )
 
-// TreatmentPlan 是处置 agent 的产出。
+// TreatmentPlan 是处置方案：现由 finish/refer 工具入参解码而来，复用其结构校验。
 type TreatmentPlan struct {
 	Plan           PlanKind     `json:"plan"`
 	Advice         string       `json:"advice"`
@@ -66,56 +35,7 @@ type EmergencyInterrupt struct {
 	Reason string `json:"reason"`
 }
 
-// Validate 做结构校验（字段齐全 / enum 合法 / 自证字段存在），对应 SCHEMA_INVALID。
-func (a AdvanceToTriage) Validate() error {
-	if len(a.Subjective) == 0 {
-		return fmt.Errorf("advance_to_triage: subjective 为空")
-	}
-	return nil
-}
-
-func (r InterviewResult) Validate() error {
-	if r.Advance != nil {
-		return r.Advance.Validate()
-	}
-	if r.Reply == "" {
-		return fmt.Errorf("interview: reply 为空且无 advance")
-	}
-	return nil
-}
-
-func (t TriageDecision) Validate() error {
-	switch t.Decision {
-	case TriageConfirm:
-		if t.Diagnosis == nil {
-			return fmt.Errorf("triage CONFIRM: diagnosis 缺失")
-		}
-		if t.Diagnosis.Name == "" {
-			return fmt.Errorf("triage CONFIRM: diagnosis.name 为空")
-		}
-		if t.Diagnosis.Confidence < 0 || t.Diagnosis.Confidence > 1 {
-			return fmt.Errorf("triage CONFIRM: confidence 越界 %g", t.Diagnosis.Confidence)
-		}
-	case TriageInterview:
-		if len(t.MissingSubjective) == 0 {
-			return fmt.Errorf("triage INTERVIEW: missing_subjective 为空")
-		}
-	case TriageTest:
-		if !t.SubjectiveExhausted {
-			return fmt.Errorf("triage TEST: 必须 subjective_exhausted=true")
-		}
-		if t.Reason == "" {
-			return fmt.Errorf("triage TEST: reason 为空")
-		}
-		if len(t.TestItems) == 0 {
-			return fmt.Errorf("triage TEST: test_items 为空")
-		}
-	default:
-		return fmt.Errorf("triage: 非法 decision %q", t.Decision)
-	}
-	return nil
-}
-
+// Validate 做处置方案结构校验（advice 恒需非空 / enum 合法 / 自证字段存在）。
 func (p TreatmentPlan) Validate() error {
 	if p.Advice == "" {
 		return fmt.Errorf("treatment: advice 恒需非空")

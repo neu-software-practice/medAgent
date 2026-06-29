@@ -24,10 +24,11 @@ func resultFromPlan(p ai.TreatmentPlan, dg *ai.Diagnosis) Result {
 	return r
 }
 
-func ordersFromMeds(meds []ai.Medication) []DrugOrder {
-	out := make([]DrugOrder, 0, len(meds))
-	for _, m := range meds {
-		out = append(out, DrugOrder{Name: m.Name, Quantity: m.Quantity})
+// ordersFromAI 把引擎产出的购药盒数（ai.DrugOrder）转成公开 DrugOrder。
+func ordersFromAI(in []ai.DrugOrder) []DrugOrder {
+	out := make([]DrugOrder, 0, len(in))
+	for _, o := range in {
+		out = append(out, DrugOrder{Name: o.Name, Quantity: o.Quantity})
 	}
 	return out
 }

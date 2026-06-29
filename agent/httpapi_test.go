@@ -13,30 +13,17 @@ import (
 )
 
 func httpSvc(t *testing.T) *httptest.Server {
-	fake := scriptLLM(func(name string, n int) (any, error) {
-		switch name {
-		case "interview":
-			return ai.InterviewResult{Reply: "够了", Advance: &ai.AdvanceToTriage{Subjective: map[string]any{"a": "b"}}}, nil
-		case "triage_decide":
-			return ai.TriageDecision{Decision: ai.TriageConfirm, Diagnosis: &ai.Diagnosis{Name: "急性咽炎", Basis: "x", Confidence: 0.9}}, nil
-		case "treatment_plan":
-			return ai.TreatmentPlan{Plan: ai.PlanAdviceOnly, Advice: "多休息"}, nil
-		case "emergency_interrupt":
-			return map[string]any{"hit": false}, nil
-		}
-		return nil, nil
-	})
-	s := newService(Config{}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+	s := svcGuarded(chatScript(finishAdviceT("急性咽炎", "多休息")), noGuardian())
 	t.Cleanup(func() { s.Close() })
 	return httptest.NewServer(s.Handler())
 }
 
 func TestHTTPTimeoutMapsTo504(t *testing.T) {
-	fake := &ai.FakeLLM{On: func(ai.CompletionRequest) (ai.CompletionResult, error) {
+	chat := chatFn(func(int) (ai.AssistantTurn, error) {
 		// 模拟 LLM 客户端自身超时（http.Client.Timeout）：错误链含 context.DeadlineExceeded，请求 ctx 未取消
-		return ai.CompletionResult{}, fmt.Errorf("openaicompat: 请求失败 (%w): %w", context.DeadlineExceeded, ai.ErrLLM)
-	}}
-	s := newService(Config{DisableGuardian: true}, ai.NewDecisionLayer(fake), ai.NewGuardian(fake))
+		return ai.AssistantTurn{}, fmt.Errorf("openaicompat: 请求失败 (%w): %w", context.DeadlineExceeded, ai.ErrLLM)
+	})
+	s := newService(Config{DisableGuardian: true}, ai.NewEngine(chat), ai.NewGuardian(noGuardian()))
 	t.Cleanup(func() { s.Close() })
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()

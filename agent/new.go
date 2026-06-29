@@ -32,5 +32,9 @@ func New(cfg Config) (*Service, error) {
 		}
 		llm = consultlog.Wrap(llm, consultlog.NewFileLogger(cfg.LogDir))
 	}
-	return newService(cfg, ai.NewDecisionLayer(llm), ai.NewGuardian(llm)), nil
+	chat, ok := llm.(ai.ChatClient)
+	if !ok {
+		return nil, fmt.Errorf("medagent: LLM 客户端不支持工具对话（ChatClient）")
+	}
+	return newService(cfg, ai.NewEngine(chat), ai.NewGuardian(llm)), nil
 }

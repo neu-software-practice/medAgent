@@ -31,8 +31,8 @@ func TestResultFinalReferral(t *testing.T) {
 	}
 }
 
-func TestOrdersFromMeds(t *testing.T) {
-	o := ordersFromMeds([]ai.Medication{{Name: "阿莫西林", Quantity: 3}, {Name: "布洛芬", Quantity: 1}})
+func TestOrdersFromAI(t *testing.T) {
+	o := ordersFromAI([]ai.DrugOrder{{Name: "阿莫西林", Quantity: 3}, {Name: "布洛芬", Quantity: 1}})
 	if len(o) != 2 || o[0].Name != "阿莫西林" || o[0].Quantity != 3 {
 		t.Fatalf("orders 不符：%+v", o)
 	}
