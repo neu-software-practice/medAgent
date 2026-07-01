@@ -46,6 +46,7 @@ type session struct {
 	pending          *pendingCall // 非空=挂起等回填；nil=未开始或刚终态
 	steps            int          // 已消耗 step 预算
 	purchased        bool         // 已走过购药回报，防 resume 二次购药
+	tested           bool         // 已开过检验，防二次开检验
 	drugInfoSupplied bool         // 已回填药品规格
 	lastPromptTokens int          // 上一步 provider 返回的真实输入 token（压缩阈值用）
 	record           SessionRecord

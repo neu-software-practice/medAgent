@@ -66,6 +66,44 @@ func TestPurchaseIdempotencyRecovers(t *testing.T) {
 	}
 }
 
+// 检验幂等：已开检验后模型再次请求 order_test → 被拦截并要求继续，最终正常结束。
+func TestTestOrderIdempotencyRecovers(t *testing.T) {
+	s := svcChat(chatScript(
+		orderTestT(),
+		orderTestT(), // 冗余开检验，应被拦截
+		finishAdviceT("上呼吸道感染", "多喝水休息"),
+	))
+	defer s.Close()
+	id, _ := s.Start(nil, true, nil)
+
+	st, err := s.PatientSay(context.Background(), id, "发烧")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Kind != StepNeedTests {
+		t.Fatalf("第一步应为 NEED_TESTS: %+v", st)
+	}
+
+	st, err = s.SupplyTestResults(context.Background(), id, []TestResult{{Item: "血常规-白细胞", Value: "11.2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Kind != StepDone {
+		t.Fatalf("冗余开检验应被拦截并最终 DONE: %+v", st)
+	}
+
+	rec, _ := s.Export(id)
+	warned := false
+	for _, tn := range rec.Turns {
+		if tn.Kind == "warn" && strings.Contains(tn.Text, "再次请求检验") {
+			warned = true
+		}
+	}
+	if !warned {
+		t.Fatalf("应记录拦截 warn: %+v", rec.Turns)
+	}
+}
+
 // 内部纠正预算：模型购药后一直重复请求购药 → 达 maxInternalSteps 后关闭会话。
 func TestInternalCorrectionBudget(t *testing.T) {
 	n := 0

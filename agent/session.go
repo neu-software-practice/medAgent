@@ -183,6 +183,13 @@ func (s *Service) drive(ctx context.Context, sess *session) (Step, error) {
 			return s.finishTerminal(sess, res.Terminal), nil
 		}
 		b := res.Boundary
+		// 幂等护栏：已开检验后又调 order_test → 注入纠正结果、要求据已有结果继续，绝不二次开检验。
+		if b.Kind == ai.BoundaryTest && sess.tested {
+			sess.addTurn("warn", "模型在已开检验后再次请求检验，已拦截并要求继续问诊")
+			sess.transcript = append(sess.transcript, ai.Message{Role: "tool", ToolCallID: b.ToolCall.ID,
+				Content: "已开过检验（血常规），请勿重复开检验；请根据已获取的信息继续问诊或给出诊断（finish）。"})
+			continue
+		}
 		// 幂等护栏：已购药后又调 purchase_drug → 注入纠正结果、要求据已购结果收尾，绝不二次购药。
 		if b.Kind == ai.BoundaryPurchase && sess.purchased {
 			sess.addTurn("warn", "模型在已购药后再次请求购药，已拦截并要求据已购结果收尾")
@@ -238,6 +245,7 @@ func (s *Service) yieldBoundary(sess *session, b *ai.Boundary) (Step, error) {
 		return Step{Kind: StepAsk, DoctorSay: b.Question}, nil
 	case ai.BoundaryTest:
 		sess.addTurn("test_request", "血常规")
+		sess.tested = true
 		return Step{Kind: StepNeedTests, TestItems: []string{"血常规"}}, nil
 	case ai.BoundaryDrugQuery:
 		sess.addTurn("drug_query", fmt.Sprintf("%v", b.Names))
@@ -279,7 +287,7 @@ type checkpoint struct {
 	nInterview, nTests, nRefusals int
 	nTurns                        int
 	pending                       *pendingCall
-	purchased, drugInfo           bool
+	purchased, drugInfo, tested   bool
 	lastTokens                    int
 }
 
@@ -292,6 +300,7 @@ func (sess *session) checkpoint() checkpoint {
 		nTurns:     len(sess.record.Turns),
 		pending:    sess.pending,
 		purchased:  sess.purchased,
+		tested:     sess.tested,
 		drugInfo:   sess.drugInfoSupplied,
 		lastTokens: sess.lastPromptTokens,
 	}
@@ -305,6 +314,7 @@ func (sess *session) restore(c checkpoint) {
 	sess.record.Turns = sess.record.Turns[:c.nTurns]
 	sess.pending = c.pending
 	sess.purchased = c.purchased
+	sess.tested = c.tested
 	sess.drugInfoSupplied = c.drugInfo
 	sess.lastPromptTokens = c.lastTokens
 }
